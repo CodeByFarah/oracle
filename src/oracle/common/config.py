@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     # SEC fair-access policy: descriptive User-Agent with contact, e.g. "ORACLE research you@x".
     sec_user_agent: str | None = None
     live_trading_enabled: bool = False
+    # HMAC key used to sign human live-trading authorizations (Phase 16). Never committed.
+    live_authorization_secret: SecretStr | None = None
 
     @model_validator(mode="after")
     def _live_trading_only_in_live_environment(self) -> Settings:

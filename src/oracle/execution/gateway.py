@@ -129,7 +129,10 @@ class ExecutionGateway:
                     "execution_policy",
                     f"order is {share:.1%} of bar volume (policy {self.max_participation:.1%})",
                 )
-        broker_id = self._broker.submit(order)
+        try:
+            broker_id = self._broker.submit(order)
+        except PermissionError as exc:  # live safety gates refuse by raising
+            return _rejected("broker", str(exc))
         return GatewayResult(
             accepted=True, stage="submitted", reasons=decision.reasons, broker_order_id=broker_id
         )
