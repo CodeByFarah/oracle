@@ -11,6 +11,7 @@ Conventions shared by every contract:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -21,6 +22,21 @@ UTC_NS = pa.timestamp("ns", tz="UTC")
 
 def _schema(*fields: pa.Field[Any]) -> pa.Schema:
     return pa.schema(list(fields))
+
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def to_datetimes(column: pa.Array[Any] | pa.ChunkedArray[Any]) -> list[datetime]:
+    """UTC datetimes (microsecond precision) from a timestamp column.
+
+    Faster than `to_pylist()` on tz-aware columns, which on this platform attempts a slow
+    module import per element.
+    """
+    nanos = column.cast(pa.int64()).to_pylist()
+    if None in nanos:
+        raise ValueError("to_datetimes requires a column without nulls")
+    return [_EPOCH + timedelta(microseconds=n // 1000) for n in nanos if n is not None]
 
 
 class DatasetKind(StrEnum):
