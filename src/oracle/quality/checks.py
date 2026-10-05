@@ -129,24 +129,6 @@ def _to_ns(moment: datetime) -> int:
 # ---- bars --------------------------------------------------------------------------------
 
 
-def _session_bounds(days: I64) -> tuple[I64, I64]:
-    """Session open/close (ns) per bar; -1 where the exchange is closed.
-
-    A regular or early NYSE session lies within one UTC calendar day, so a bar's UTC date
-    equals its New York trading date.
-    """
-    unique = np.unique(days)
-    opens = np.full(unique.shape, -1, dtype=np.int64)
-    closes = np.full(unique.shape, -1, dtype=np.int64)
-    for i, day_index in enumerate(unique):
-        s = calendar.session(EPOCH + timedelta(days=int(day_index)))
-        if s is not None:
-            opens[i] = _to_ns(s.open)
-            closes[i] = _to_ns(s.close)
-    pos = np.searchsorted(unique, days)
-    return opens[pos], closes[pos]
-
-
 def check_bars(table: pa.Table, now: datetime) -> tuple[list[Issue], list[str]]:
     q = _Collector(table)
     ids = ["symbol", "interval", "event_ts"]
@@ -194,7 +176,7 @@ def check_bars(table: pa.Table, now: datetime) -> tuple[list[Issue], list[str]]:
     )
 
     days = event // NS_PER_DAY
-    s_open, s_close = _session_bounds(days)
+    s_open, s_close = calendar.session_bounds_ns(event)
     closed = s_open < 0
     minute_bad = (intervals == "1m") & (closed | (event < s_open) | (event >= s_close))
     daily_bad = (intervals == "1d") & (closed | (event != s_open))

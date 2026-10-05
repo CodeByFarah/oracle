@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from oracle.common.config import Settings
-from oracle.data.lake import Lake
 
 _PROVIDER_ENV = (
     "FRED_API_KEY",
@@ -31,8 +29,3 @@ def make_settings() -> Callable[..., Settings]:
         return Settings(_env_file=None, **kwargs)
 
     return factory
-
-
-@pytest.fixture
-def lake(tmp_path: Path) -> Lake:
-    return Lake(tmp_path / "lake")

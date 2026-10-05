@@ -12,11 +12,16 @@ from datetime import UTC, date, datetime, time, timedelta
 from functools import lru_cache
 from zoneinfo import ZoneInfo
 
+import numpy as np
+import numpy.typing as npt
+
 NEW_YORK = ZoneInfo("America/New_York")
 REGULAR_OPEN = time(9, 30)
 REGULAR_CLOSE = time(16, 0)
 EARLY_CLOSE = time(13, 0)
 SUPPORTED_YEARS = range(2000, 2031)
+_NS_PER_DAY = 86_400 * 1_000_000_000
+_EPOCH = date(1970, 1, 1)
 
 SPECIAL_CLOSURES: dict[date, str] = {
     date(2001, 9, 11): "September 11 attacks",
@@ -132,6 +137,31 @@ def session(day: date) -> Session | None:
     opened = datetime.combine(day, REGULAR_OPEN, NEW_YORK).astimezone(UTC)
     closed = datetime.combine(day, EARLY_CLOSE if early else REGULAR_CLOSE, NEW_YORK)
     return Session(day, opened, closed.astimezone(UTC), early)
+
+
+def session_bounds_ns(
+    event_ns: npt.NDArray[np.int64],
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64]]:
+    """Session open/close (UTC ns) for each timestamp's UTC day; -1 where the exchange is closed.
+
+    A regular or early NYSE session lies within one UTC calendar day, so a bar's UTC date is its
+    New York trading date.
+    """
+    days = event_ns // _NS_PER_DAY
+    unique = np.unique(days)
+    opens = np.full(unique.shape, -1, dtype=np.int64)
+    closes = np.full(unique.shape, -1, dtype=np.int64)
+    for i, day_index in enumerate(unique):
+        s = session(_EPOCH + timedelta(days=int(day_index)))
+        if s is not None:
+            opens[i] = _to_ns(s.open)
+            closes[i] = _to_ns(s.close)
+    pos = np.searchsorted(unique, days)
+    return opens[pos], closes[pos]
+
+
+def _to_ns(moment: datetime) -> int:
+    return int((moment - datetime(1970, 1, 1, tzinfo=UTC)) / timedelta(microseconds=1)) * 1000
 
 
 def sessions(start: date, end: date) -> list[Session]:
