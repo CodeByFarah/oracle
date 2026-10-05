@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: oracle
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: oracle
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U oracle -d oracle"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      ORACLE_DATABASE_URL: postgresql+psycopg://oracle:ci-only-password@127.0.0.1:5432/oracle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run lint-imports
+      - run: uv run pytest

@@ -1,0 +1,44 @@
+[importlinter]
+root_package = oracle
+
+# Higher layers may import lower layers, never the reverse.
+# ":" separates sibling modules that may import each other within a layer.
+[importlinter:contract:layers]
+name = ORACLE layer model (docs/architecture.md)
+type = layers
+layers =
+    oracle.cli
+    oracle.execution
+    oracle.strategy : oracle.portfolio : oracle.risk
+    oracle.research_agent
+    oracle.discovery : oracle.hypothesis : oracle.validation : oracle.adversarial : oracle.backtest
+    oracle.features : oracle.market_state : oracle.regime : oracle.flow : oracle.anomaly : oracle.graph : oracle.world_model
+    oracle.ingestion : oracle.normalization : oracle.quality
+    oracle.data : oracle.registry
+    oracle.schemas
+    oracle.common
+
+# The trading path must never depend on the AI research agent, directly or indirectly.
+[importlinter:contract:no-agent-in-trading-path]
+name = Trading path does not import the research agent
+type = forbidden
+source_modules =
+    oracle.strategy
+    oracle.portfolio
+    oracle.risk
+    oracle.execution
+forbidden_modules =
+    oracle.research_agent
+
+# Agent code may not reach credentials-bearing config or the metadata DB directly; it uses the
+# typed research tool API (Phase 10). Indirect use through L3 is allowed; runtime isolation is
+# provided by the sandbox (no network, no secrets mounted).
+[importlinter:contract:agent-isolation]
+name = Research agent does not directly import config or registry
+type = forbidden
+source_modules =
+    oracle.research_agent
+forbidden_modules =
+    oracle.common.config
+    oracle.registry
+allow_indirect_imports = True
