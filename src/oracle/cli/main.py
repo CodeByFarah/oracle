@@ -9,11 +9,15 @@ import typer
 from sqlalchemy import text
 
 from oracle import __version__
+from oracle.cli.data_commands import dataset_app, ingest_app, providers
 from oracle.common.config import ConfigurationError, get_settings
 from oracle.common.provenance import CodeVersionError, get_code_version
 from oracle.registry.db import make_engine
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
+app.command()(providers)
+app.add_typer(ingest_app, name="ingest")
+app.add_typer(dataset_app, name="dataset")
 
 
 @app.command()

@@ -53,8 +53,8 @@ evidence will refuse a dirty working tree.
 
 | Store | Contents | Status |
 |---|---|---|
-| PostgreSQL 17 | `audit_log` (append-only, enforced by trigger), `experiments`; later hypotheses, test ledger, models, journal | Live (migration `0001`) |
-| Parquet lake under `ORACLE_DATA_ROOT` | `raw/` (unmodified vendor payloads), `normalized/`, `features/`, `manifests/` | Phase 1–2 |
+| PostgreSQL 17 | `audit_log` (append-only, enforced by trigger), `experiments`, `dataset_versions`; later hypotheses, test ledger, models, journal | Live (migrations `0001`, `0002`) |
+| Lake under `ORACLE_DATA_ROOT` (`oracle.data.lake`) | `raw/` (content-addressed source bytes plus metadata), `normalized/` (immutable Parquet partitions), `manifests/` (versioned, content-hashed) | Live (Phase 1) |
 | DuckDB | Analytical SQL over the Parquet lake | Phase 2 |
 | Redis, streaming broker | Realtime state | Deferred until realtime work needs them |
 

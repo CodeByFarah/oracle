@@ -44,6 +44,15 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("DATABENTO_API_KEY", "ORACLE_DATABENTO_API_KEY"),
     )
+    # Hard budget for paid data. 0.0 refuses every billable Databento request.
+    databento_max_cost_usd: float = Field(default=0.0, ge=0.0)
+    # Free FRED API key (registration only, no payment). FRED's convention is FRED_API_KEY.
+    fred_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("FRED_API_KEY", "ORACLE_FRED_API_KEY"),
+    )
+    # SEC fair-access policy: descriptive User-Agent with contact, e.g. "ORACLE research you@x".
+    sec_user_agent: str | None = None
     live_trading_enabled: bool = False
 
     @model_validator(mode="after")

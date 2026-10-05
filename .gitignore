@@ -14,8 +14,9 @@ build/
 .env.*
 !.env.example
 
-# Market data: licensed (Databento); never commit raw or derived datasets
-data/
+# Market data lake (ORACLE_DATA_ROOT default): never commit raw or derived datasets.
+# Anchored to the repo root so source packages named `data` are still tracked.
+/data/
 *.parquet
 *.dbn
 *.dbn.zst

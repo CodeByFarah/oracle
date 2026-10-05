@@ -38,6 +38,29 @@ uv run pytest            # integration tests skip if ORACLE_DATABASE_URL is unse
 
 ## Data
 
-Market data comes from Databento (licensed). Raw or derived vendor data must never be
-committed; `.gitignore` excludes `data/`, `*.parquet` and `*.dbn*`. The Databento adapter is
-**pending** (Phase 1) and needs `DATABENTO_API_KEY` in `.env`.
+ORACLE runs on **free data only**; paid vendors are optional
+([ADR 0002](docs/adr/0002-free-data-first.md)).
+
+```powershell
+uv run oracle providers                       # what is enabled, and why not
+uv run oracle ingest synthetic --symbols SPY,QQQ --start 2024-01-02 --end 2024-01-05
+uv run oracle ingest fred --series DGS10,CPIAUCSL   # needs free FRED_API_KEY
+uv run oracle ingest edgar --cik 320193             # needs ORACLE_SEC_USER_AGENT (free)
+uv run oracle dataset show bars
+uv run oracle dataset verify bars                   # re-hash every file of the version
+```
+
+| Provider | Dataset | Cost | Enabled when |
+|---|---|---|---|
+| `synthetic` | bars (tagged `is_synthetic`; **not market data**) | free | always |
+| `fred` | macro_observations, all ALFRED vintages | free | `FRED_API_KEY` set |
+| `sec_edgar` | filings | free | `ORACLE_SEC_USER_AGENT` set |
+| `databento` | bars | **paid, optional** | key + `uv sync --extra databento`; refused above `ORACLE_DATABENTO_MAX_COST_USD` (default 0) |
+
+Ingestion writes raw source bytes first, under `data/raw/` (content-addressed by SHA-256). It
+then normalizes them to the canonical contracts and commits a new immutable dataset version
+under `data/manifests/`. Re-ingesting identical data is a no-op. A row that contradicts an
+existing row with the same key is refused, never silently overwritten.
+
+Raw or derived vendor data must never be committed. `.gitignore` excludes `data/`,
+`*.parquet` and `*.dbn*`.

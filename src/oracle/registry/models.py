@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Text, func, text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Integer, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -61,3 +61,21 @@ class Experiment(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DatasetVersion(Base):
+    """One row per lake manifest version (content-addressed, immutable)."""
+
+    __tablename__ = "dataset_versions"
+
+    version: Mapped[str] = mapped_column(Text, primary_key=True)
+    dataset: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    parent_version: Mapped[str | None] = mapped_column(Text)
+    row_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    file_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    registered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
