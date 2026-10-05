@@ -45,10 +45,14 @@ def test_minute_sessions_skip_weekends() -> None:
 
 def test_session_times_follow_new_york_dst() -> None:
     winter = synthetic_table(
-        symbols=("AAA",), start=datetime(2024, 1, 2, tzinfo=UTC), end=datetime(2024, 1, 3, tzinfo=UTC)
+        symbols=("AAA",),
+        start=datetime(2024, 1, 2, tzinfo=UTC),
+        end=datetime(2024, 1, 3, tzinfo=UTC),
     )
     summer = synthetic_table(
-        symbols=("AAA",), start=datetime(2024, 7, 2, tzinfo=UTC), end=datetime(2024, 7, 3, tzinfo=UTC)
+        symbols=("AAA",),
+        start=datetime(2024, 7, 2, tzinfo=UTC),
+        end=datetime(2024, 7, 3, tzinfo=UTC),
     )
     assert winter["event_ts"][0].as_py() == datetime(2024, 1, 2, 14, 30, tzinfo=UTC)
     assert summer["event_ts"][0].as_py() == datetime(2024, 7, 2, 13, 30, tzinfo=UTC)
@@ -76,5 +80,5 @@ def test_daily_bars_close_at_four_pm_new_york() -> None:
 
 def test_payload_request_identifies_generator_and_seed() -> None:
     _, payloads = synthetic_payloads(seed=11)
-    assert payloads[0].param("generator") == "synthetic-bars-v1"
+    assert payloads[0].param("generator") == "synthetic-bars-v2"
     assert payloads[0].param("seed") == "11"

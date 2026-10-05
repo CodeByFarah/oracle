@@ -26,7 +26,7 @@ import pyarrow.compute as pc
 from oracle.data.providers.base import (
     BarRequest,
     ProviderCapabilities,
-    ProviderUnavailable,
+    ProviderUnavailableError,
     RawPayload,
 )
 from oracle.schemas.market import UTC_NS, DatasetKind
@@ -46,7 +46,7 @@ CAPABILITIES = ProviderCapabilities(
 )
 
 
-class CostLimitExceeded(ProviderUnavailable):
+class CostLimitExceededError(ProviderUnavailableError):
     def __init__(self, estimated_usd: float, limit_usd: float) -> None:
         super().__init__(
             f"Databento request estimated at ${estimated_usd:.4f} exceeds the "
@@ -87,9 +87,9 @@ def ohlcv_to_canonical(table: pa.Table, interval: str) -> pa.Table:
 
 def _import_sdk() -> Any:
     try:
-        import databento  # noqa: PLC0415 - optional dependency, imported lazily
+        import databento
     except ImportError as exc:
-        raise ProviderUnavailable(
+        raise ProviderUnavailableError(
             "databento package not installed (optional extra: uv sync --extra databento)"
         ) from exc
     return databento
@@ -107,7 +107,7 @@ class DatabentoProvider:
         client: Any | None = None,
     ) -> None:
         if not api_key:
-            raise ProviderUnavailable("DATABENTO_API_KEY is not set")
+            raise ProviderUnavailableError("DATABENTO_API_KEY is not set")
         if max_cost_usd < 0:
             raise ValueError("max_cost_usd must be >= 0")
         self._max_cost = max_cost_usd
@@ -124,7 +124,7 @@ class DatabentoProvider:
         }
         estimated = float(self._client.metadata.get_cost(**params))
         if estimated > self._max_cost:
-            raise CostLimitExceeded(estimated, self._max_cost)
+            raise CostLimitExceededError(estimated, self._max_cost)
         store = self._client.timeseries.get_range(**params)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "payload.dbn.zst"
@@ -149,7 +149,11 @@ class DatabentoProvider:
         ]
 
     def to_canonical(self, payload: RawPayload) -> pa.Table:
-        sdk = _import_sdk()
-        frame = sdk.DBNStore.from_bytes(payload.content).to_df(pretty_ts=True, map_symbols=True)
-        table = pa.Table.from_pandas(frame.reset_index(), preserve_index=False)
-        return ohlcv_to_canonical(table, payload.param("interval"))
+        return payload_to_canonical(payload)
+
+
+def payload_to_canonical(payload: RawPayload) -> pa.Table:
+    sdk = _import_sdk()
+    frame = sdk.DBNStore.from_bytes(payload.content).to_df(pretty_ts=True, map_symbols=True)
+    table = pa.Table.from_pandas(frame.reset_index(), preserve_index=False)
+    return ohlcv_to_canonical(table, payload.param("interval"))

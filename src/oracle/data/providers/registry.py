@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import importlib.util
+from collections.abc import Callable
 
 import httpx
+import pyarrow as pa
 
 from oracle import __version__
 from oracle.common.config import Settings
@@ -13,10 +15,20 @@ from oracle.data.providers import databento_adapter, edgar, fred, synthetic
 from oracle.data.providers.base import (
     ProviderCapabilities,
     ProviderStatus,
-    ProviderUnavailable,
+    ProviderUnavailableError,
+    RawPayload,
 )
 
 HTTP_TIMEOUT_S = 30.0
+
+# Credential-free normalizers, keyed by provider name: rebuilding a dataset from stored raw
+# payloads never needs network access or API keys.
+CANONICALIZERS: dict[str, Callable[[RawPayload], pa.Table]] = {
+    synthetic.CAPABILITIES.name: synthetic.payload_to_canonical,
+    fred.CAPABILITIES.name: fred.payload_to_canonical,
+    edgar.CAPABILITIES.name: edgar.payload_to_canonical,
+    databento_adapter.CAPABILITIES.name: databento_adapter.payload_to_canonical,
+}
 
 
 def _status(caps: ProviderCapabilities, reason: str | None) -> ProviderStatus:
@@ -63,9 +75,9 @@ def build_fred(
     min_interval_s: float = fred.MIN_INTERVAL_S,
 ) -> fred.FredProvider:
     """`transport` replaces the network (tests); headers and limits are still applied."""
-    if reason := _fred_reason(settings):
-        raise ProviderUnavailable(reason)
-    assert settings.fred_api_key is not None
+    reason = _fred_reason(settings)
+    if reason or settings.fred_api_key is None:
+        raise ProviderUnavailableError(reason or "FRED_API_KEY not set")
     client = httpx.Client(
         transport=transport,
         timeout=HTTP_TIMEOUT_S,
@@ -84,9 +96,9 @@ def build_edgar(
     min_interval_s: float = edgar.MIN_INTERVAL_S,
 ) -> edgar.EdgarProvider:
     """`transport` replaces the network (tests); headers and limits are still applied."""
-    if reason := _edgar_reason(settings):
-        raise ProviderUnavailable(reason)
-    assert settings.sec_user_agent is not None
+    reason = _edgar_reason(settings)
+    if reason or settings.sec_user_agent is None:
+        raise ProviderUnavailableError(reason or "ORACLE_SEC_USER_AGENT not set")
     client = httpx.Client(
         transport=transport,
         timeout=HTTP_TIMEOUT_S,
@@ -96,9 +108,9 @@ def build_edgar(
 
 
 def build_databento(settings: Settings) -> databento_adapter.DatabentoProvider:
-    if reason := _databento_reason(settings):
-        raise ProviderUnavailable(reason)
-    assert settings.databento_api_key is not None
+    reason = _databento_reason(settings)
+    if reason or settings.databento_api_key is None:
+        raise ProviderUnavailableError(reason or "DATABENTO_API_KEY not set")
     return databento_adapter.DatabentoProvider(
         settings.databento_api_key.get_secret_value(),
         max_cost_usd=settings.databento_max_cost_usd,

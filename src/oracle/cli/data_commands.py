@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, time
+from pathlib import Path
 from typing import Annotated
 
+import duckdb
 import typer
 from pydantic import ValidationError
 
@@ -17,10 +19,12 @@ from oracle.data.providers.base import (
     FilingsRequest,
     MacroSeriesRequest,
     ProviderRequestError,
-    ProviderUnavailable,
+    ProviderUnavailableError,
     RawPayload,
 )
+from oracle.data.query import connect
 from oracle.ingestion.pipeline import ingest_payloads
+from oracle.ingestion.rebuild import RebuildError, rebuild
 from oracle.normalization.payloads import NormalizationError
 from oracle.registry.datasets import register_manifest
 from oracle.registry.db import make_engine
@@ -140,7 +144,7 @@ def ingest_fred(
         payloads = provider.fetch_macro(
             MacroSeriesRequest(series_ids=_split(series), all_vintages=not latest_only)
         )
-    except (ProviderUnavailable, ProviderRequestError) as exc:
+    except (ProviderUnavailableError, ProviderRequestError) as exc:
         raise _fail(exc) from exc
     _run(settings, provider, payloads, register=register)
 
@@ -158,7 +162,7 @@ def ingest_edgar(
         payloads = provider.fetch_filings(
             FilingsRequest(ciks=_split(cik), include_older_pages=all_pages)
         )
-    except (ProviderUnavailable, ProviderRequestError, ValidationError) as exc:
+    except (ProviderUnavailableError, ProviderRequestError, ValidationError) as exc:
         raise _fail(exc) from exc
     _run(settings, provider, payloads, register=register)
 
@@ -176,7 +180,7 @@ def ingest_databento(
     try:
         provider = registry.build_databento(settings)
         payloads = provider.fetch_bars(_bar_request(symbols, start, end, interval))
-    except (ProviderUnavailable, ValidationError) as exc:
+    except (ProviderUnavailableError, ValidationError) as exc:
         raise _fail(exc) from exc
     _run(settings, provider, payloads, register=register)
 
@@ -195,6 +199,53 @@ def dataset_show(kind: DatasetKind, version: _Version = None) -> None:
     typer.echo(f"rows            {manifest.row_count}")
     typer.echo(f"partitions      {len(manifest.partitions)}")
     typer.echo(f"raw sources     {len(manifest.sources)}")
+
+
+@dataset_app.command("rebuild")
+def dataset_rebuild(
+    kind: DatasetKind,
+    scratch: Annotated[Path, typer.Option(help="Empty directory for the rebuilt lake")],
+    version: _Version = None,
+) -> None:
+    """Rebuild a version from its raw payloads; exit 1 unless the version id is reproduced."""
+    lake = Lake(get_settings().data_root)
+    manifest = lake.load_manifest(kind, version) if version else lake.head(kind)
+    if manifest is None:
+        raise _fail(RuntimeError(f"no {kind} dataset in {lake.root}"))
+    try:
+        result = rebuild(lake, manifest, scratch, now=datetime.now(UTC))
+    except (RebuildError, LakeIntegrityError) as exc:
+        raise _fail(exc) from exc
+    typer.echo(f"original {result.original_version}")
+    typer.echo(f"rebuilt  {result.rebuilt_version} ({result.rows} rows)")
+    if not result.reproduced:
+        typer.echo("NOT REPRODUCED", err=True)
+        raise typer.Exit(code=1)
+    typer.echo("reproduced")
+
+
+@dataset_app.command("query")
+def dataset_query(
+    sql: Annotated[str, typer.Argument(help="SQL over views: bars, macro_observations, filings")],
+    limit: int = 20,
+) -> None:
+    """Run SQL against the HEAD version of every dataset present in the lake."""
+    lake = Lake(get_settings().data_root)
+    manifests = [m for kind in DatasetKind if (m := lake.head(kind)) is not None]
+    if not manifests:
+        raise _fail(RuntimeError(f"no datasets in {lake.root}"))
+    con = connect(lake, manifests)
+    try:
+        result = con.execute(sql)
+        columns = [d[0] for d in result.description]
+        rows = result.fetchmany(limit)
+    except duckdb.Error as exc:
+        raise _fail(exc) from exc
+    finally:
+        con.close()
+    typer.echo("\t".join(columns))
+    for row in rows:
+        typer.echo("\t".join(str(v) for v in row))
 
 
 @dataset_app.command("verify")

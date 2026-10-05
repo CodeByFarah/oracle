@@ -40,9 +40,7 @@ def _fred_pages(request: httpx.Request) -> httpx.Response:
 
 
 def _edgar_pages(request: httpx.Request) -> httpx.Response:
-    return httpx.Response(
-        200, content=fixture_bytes("edgar", request.url.path.rsplit("/", 1)[1])
-    )
+    return httpx.Response(200, content=fixture_bytes("edgar", request.url.path.rsplit("/", 1)[1]))
 
 
 def test_synthetic_end_to_end(lake: Lake) -> None:

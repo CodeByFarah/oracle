@@ -13,7 +13,7 @@ from oracle.data.providers.base import (
     MacroDataProvider,
     MacroSeriesRequest,
     ProviderRequestError,
-    ProviderUnavailable,
+    ProviderUnavailableError,
 )
 from oracle.data.providers.fred import FredProvider, vintage_available_ts
 from oracle.schemas.conform import conform
@@ -41,7 +41,7 @@ def _provider(
 
 
 def test_disabled_without_free_key(make_settings: Callable[..., Settings]) -> None:
-    with pytest.raises(ProviderUnavailable, match="FRED_API_KEY"):
+    with pytest.raises(ProviderUnavailableError, match="FRED_API_KEY"):
         registry.build_fred(make_settings())
 
 

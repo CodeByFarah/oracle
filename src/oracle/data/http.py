@@ -14,9 +14,7 @@ _SECRET_PARAMS = frozenset({"api_key", "apikey", "key", "token"})
 
 
 def redact_url(url: httpx.URL) -> str:
-    params = [
-        (k, "***" if k.lower() in _SECRET_PARAMS else v) for k, v in url.params.multi_items()
-    ]
+    params = [(k, "***" if k.lower() in _SECRET_PARAMS else v) for k, v in url.params.multi_items()]
     return str(url.copy_with(params=params))
 
 

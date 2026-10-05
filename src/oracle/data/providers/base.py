@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from oracle.schemas.market import DatasetKind
 
 
-class ProviderUnavailable(RuntimeError):
+class ProviderUnavailableError(RuntimeError):
     """The provider is disabled (missing free credential, optional package, or cost guard)."""
 
 

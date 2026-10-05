@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from oracle.common.config import Settings
 from oracle.data.providers import registry
-from oracle.data.providers.base import FilingsProvider, FilingsRequest, ProviderUnavailable
+from oracle.data.providers.base import FilingsProvider, FilingsRequest, ProviderUnavailableError
 from oracle.data.providers.edgar import EdgarProvider, acceptance_to_utc
 from oracle.schemas.conform import conform
 from oracle.schemas.market import FILINGS
@@ -33,7 +33,7 @@ def _provider(make_settings: Callable[..., Settings]) -> tuple[EdgarProvider, Re
 
 
 def test_disabled_without_user_agent(make_settings: Callable[..., Settings]) -> None:
-    with pytest.raises(ProviderUnavailable, match="ORACLE_SEC_USER_AGENT"):
+    with pytest.raises(ProviderUnavailableError, match="ORACLE_SEC_USER_AGENT"):
         registry.build_edgar(make_settings())
 
 

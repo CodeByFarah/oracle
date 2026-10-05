@@ -14,6 +14,7 @@ Concurrency: single writer per lake. Writes are atomic (temp file + rename).
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 from collections.abc import Iterable
@@ -114,6 +115,35 @@ class Lake:
 
     def _abs(self, relative: str) -> Path:
         return self.root.joinpath(*relative.split("/"))
+
+    def resolve(self, relative: str) -> Path:
+        """Absolute path of a lake-relative POSIX path (as stored in manifests and RawRefs)."""
+        return self._abs(relative)
+
+    def raw_payload(self, provider: str, kind: DatasetKind, sha256: str) -> RawPayload:
+        """Reconstruct a stored payload from its bytes and metadata, verifying the hash."""
+        base = f"raw/{provider}/{kind.value}/{sha256[:2]}/{sha256}"
+        meta = json.loads(self._abs(base + ".meta.json").read_bytes())
+        ext = _EXTENSIONS.get(meta["content_type"], ".bin")
+        ref = RawRef(provider, kind, sha256, base + ext, 0)
+        return RawPayload(
+            provider=provider,
+            dataset=kind,
+            content=self.read_raw(ref),
+            content_type=meta["content_type"],
+            retrieved_at=datetime.fromisoformat(meta["retrieved_at"]),
+            request=tuple(sorted(meta["request"].items())),
+        )
+
+    def raw_providers(self, kind: DatasetKind) -> dict[str, str]:
+        """Map raw payload sha256 -> provider for every stored payload of a dataset."""
+        found: dict[str, str] = {}
+        raw_root = self._abs("raw")
+        if not raw_root.exists():
+            return found
+        for meta_path in raw_root.glob(f"*/{kind.value}/*/*.meta.json"):
+            found[meta_path.name.removesuffix(".meta.json")] = meta_path.parents[2].name
+        return found
 
     # ---- raw -----------------------------------------------------------------------------
 

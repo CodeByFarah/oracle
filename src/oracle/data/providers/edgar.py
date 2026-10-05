@@ -77,29 +77,29 @@ class EdgarProvider:
         return payloads
 
     def to_canonical(self, payload: RawPayload) -> pa.Table:
-        body: dict[str, Any] = json.loads(payload.content)
-        # The first page nests columns under filings.recent; older pages are the columns.
-        cols: dict[str, list[str]] = body["filings"]["recent"] if "filings" in body else body
-        cik = payload.param("cik")
-        accepted = [acceptance_to_utc(v) for v in cols["acceptanceDateTime"]]
-        n = len(accepted)
-        return pa.table(
-            {
-                "source": pa.array([CAPABILITIES.name] * n, pa.string()),
-                "cik": pa.array([cik] * n, pa.string()),
-                "accession_number": pa.array(cols["accessionNumber"], pa.string()),
-                "form": pa.array(cols["form"], pa.string()),
-                "filing_date": pa.array(
-                    [date.fromisoformat(v) for v in cols["filingDate"]], pa.date32()
-                ),
-                "report_date": pa.array(
-                    [_optional_date(v) for v in cols["reportDate"]], pa.date32()
-                ),
-                "event_ts": pa.array(accepted, UTC_NS),
-                "available_ts": pa.array(accepted, UTC_NS),
-                "primary_document": pa.array(
-                    [v or None for v in cols["primaryDocument"]], pa.string()
-                ),
-                "is_synthetic": pa.array([False] * n, pa.bool_()),
-            }
-        )
+        return payload_to_canonical(payload)
+
+
+def payload_to_canonical(payload: RawPayload) -> pa.Table:
+    body: dict[str, Any] = json.loads(payload.content)
+    # The first page nests columns under filings.recent; older pages are the columns.
+    cols: dict[str, list[str]] = body["filings"]["recent"] if "filings" in body else body
+    cik = payload.param("cik")
+    accepted = [acceptance_to_utc(v) for v in cols["acceptanceDateTime"]]
+    n = len(accepted)
+    return pa.table(
+        {
+            "source": pa.array([CAPABILITIES.name] * n, pa.string()),
+            "cik": pa.array([cik] * n, pa.string()),
+            "accession_number": pa.array(cols["accessionNumber"], pa.string()),
+            "form": pa.array(cols["form"], pa.string()),
+            "filing_date": pa.array(
+                [date.fromisoformat(v) for v in cols["filingDate"]], pa.date32()
+            ),
+            "report_date": pa.array([_optional_date(v) for v in cols["reportDate"]], pa.date32()),
+            "event_ts": pa.array(accepted, UTC_NS),
+            "available_ts": pa.array(accepted, UTC_NS),
+            "primary_document": pa.array([v or None for v in cols["primaryDocument"]], pa.string()),
+            "is_synthetic": pa.array([False] * n, pa.bool_()),
+        }
+    )

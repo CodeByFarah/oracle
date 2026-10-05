@@ -101,29 +101,31 @@ class FredProvider:
         return payloads
 
     def to_canonical(self, payload: RawPayload) -> pa.Table:
-        body = json.loads(payload.content)
-        series_id = payload.param("series_id")
-        rows = body.get("observations", [])
-        realtime_start = [date.fromisoformat(r["realtime_start"]) for r in rows]
-        n = len(rows)
-        return pa.table(
-            {
-                "source": pa.array([CAPABILITIES.name] * n, pa.string()),
-                "series_id": pa.array([series_id] * n, pa.string()),
-                "observation_date": pa.array(
-                    [date.fromisoformat(r["date"]) for r in rows], pa.date32()
-                ),
-                "value": pa.array(
-                    [None if r["value"] == "." else float(r["value"]) for r in rows],
-                    pa.float64(),
-                ),
-                "realtime_start": pa.array(realtime_start, pa.date32()),
-                "realtime_end": pa.array(
-                    [date.fromisoformat(r["realtime_end"]) for r in rows], pa.date32()
-                ),
-                "available_ts": pa.array(
-                    [vintage_available_ts(d) for d in realtime_start], UTC_NS
-                ),
-                "is_synthetic": pa.array([False] * n, pa.bool_()),
-            }
-        )
+        return payload_to_canonical(payload)
+
+
+def payload_to_canonical(payload: RawPayload) -> pa.Table:
+    body = json.loads(payload.content)
+    series_id = payload.param("series_id")
+    rows = body.get("observations", [])
+    realtime_start = [date.fromisoformat(r["realtime_start"]) for r in rows]
+    n = len(rows)
+    return pa.table(
+        {
+            "source": pa.array([CAPABILITIES.name] * n, pa.string()),
+            "series_id": pa.array([series_id] * n, pa.string()),
+            "observation_date": pa.array(
+                [date.fromisoformat(r["date"]) for r in rows], pa.date32()
+            ),
+            "value": pa.array(
+                [None if r["value"] == "." else float(r["value"]) for r in rows],
+                pa.float64(),
+            ),
+            "realtime_start": pa.array(realtime_start, pa.date32()),
+            "realtime_end": pa.array(
+                [date.fromisoformat(r["realtime_end"]) for r in rows], pa.date32()
+            ),
+            "available_ts": pa.array([vintage_available_ts(d) for d in realtime_start], UTC_NS),
+            "is_synthetic": pa.array([False] * n, pa.bool_()),
+        }
+    )

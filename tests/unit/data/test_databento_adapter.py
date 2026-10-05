@@ -13,9 +13,9 @@ from pydantic import ValidationError
 
 from oracle.common.config import Settings
 from oracle.data.providers import registry
-from oracle.data.providers.base import BarRequest, ProviderUnavailable
+from oracle.data.providers.base import BarRequest, ProviderUnavailableError
 from oracle.data.providers.databento_adapter import (
-    CostLimitExceeded,
+    CostLimitExceededError,
     DatabentoProvider,
     ohlcv_to_canonical,
 )
@@ -64,7 +64,7 @@ def test_disabled_by_default(make_settings: Callable[..., Settings]) -> None:
     statuses = {s.capabilities.name: s for s in registry.provider_statuses(make_settings())}
     assert statuses["databento"].enabled is False
     assert statuses["databento"].capabilities.requires_payment is True
-    with pytest.raises(ProviderUnavailable, match="DATABENTO_API_KEY"):
+    with pytest.raises(ProviderUnavailableError, match="DATABENTO_API_KEY"):
         registry.build_databento(make_settings())
 
 
@@ -78,14 +78,14 @@ def test_negative_budget_rejected(make_settings: Callable[..., Settings]) -> Non
 
 
 def test_empty_key_rejected() -> None:
-    with pytest.raises(ProviderUnavailable):
+    with pytest.raises(ProviderUnavailableError):
         DatabentoProvider("", max_cost_usd=0.0, client=FakeClient(0.0))
 
 
 def test_billable_request_refused_before_any_download() -> None:
     client = FakeClient(cost=1.25)
     provider = DatabentoProvider("k", max_cost_usd=0.0, client=client)
-    with pytest.raises(CostLimitExceeded, match=r"\$1\.2500 exceeds the \$0\.00 budget"):
+    with pytest.raises(CostLimitExceededError, match=r"\$1\.2500 exceeds the \$0\.00 budget"):
         provider.fetch_bars(REQUEST)
     assert client.timeseries.downloads == 0
 
