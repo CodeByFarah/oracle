@@ -120,6 +120,31 @@ def hac_mean_test(
     return MeanTest(n, mean, se, t, p, lags)
 
 
+def block_clustered_mean_test(
+    values: F64, time_index: npt.NDArray[np.int64], block_length: int
+) -> MeanTest:
+    """Mean test with observations clustered into contiguous time blocks.
+
+    Observations whose forward windows overlap are correlated only within ~horizon periods, so
+    blocks several horizons long capture almost all dependence, even when events are sparse
+    and clustered (where index-based HAC estimators are biased downward). Uses the CR1
+    cluster-robust variance and a Student-t reference with G - 1 degrees of freedom.
+    """
+    ok = ~np.isnan(values)
+    x, blocks = values[ok], time_index[ok] // max(block_length, 1)
+    n = int(x.shape[0])
+    labels, inverse = np.unique(blocks, return_inverse=True)
+    g = int(labels.shape[0])
+    if n < 3 or g < 3:
+        return MeanTest(n, float("nan"), float("nan"), float("nan"), float("nan"), block_length)
+    mean = float(x.mean())
+    cluster_sums = np.bincount(inverse, weights=x - mean)
+    variance = g / (g - 1) * float(cluster_sums @ cluster_sums) / n**2
+    se = math.sqrt(variance)
+    t = mean / se if se > 0 else float("nan")
+    return MeanTest(n, mean, se, t, student_t_two_sided_p(t, g - 1), block_length)
+
+
 def overlapping_mean_test(x: F64, horizon: int) -> MeanTest:
     """Mean test for overlapping `horizon`-period observations sampled every period.
 
