@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from oracle.common.hashing import sha256_json
 from oracle.data import calendar
 from oracle.validation.costs import CostModel
-from oracle.validation.statistics import benjamini_hochberg, block_clustered_mean_test
+from oracle.validation.statistics import MeanTest, benjamini_hochberg, block_clustered_mean_test
 
 F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
@@ -335,17 +335,35 @@ def _per_timestamp_mean(data: ResearchData, values: F64, rows: B) -> tuple[F64, 
 
 def event_series(data: ResearchData, candidate: Candidate, rows: B) -> F64:
     """Per-timestamp excess return series for the candidate (NaN where there is no event)."""
-    target = data.targets[candidate.horizon]
+    hit = condition_mask(data, candidate.conditions)
+    return event_series_for_mask(data, hit, candidate.kind, candidate.horizon, rows)
+
+
+def event_series_for_mask(
+    data: ResearchData, hit_mask: B, kind: Kind, horizon: int, rows: B
+) -> F64:
+    """Like `event_series` but for an arbitrary row-level condition mask (used by the lab)."""
+    target = data.targets[horizon]
     valid = rows & ~np.isnan(target)
-    hit = condition_mask(data, candidate.conditions) & valid
+    hit = hit_mask & valid
     all_mean, all_count = _per_timestamp_mean(data, target, valid)
-    if candidate.kind == "cross_sectional":
+    if kind == "cross_sectional":
         hit_mean, hit_count = _per_timestamp_mean(data, target, hit)
         ok = (hit_count > 0) & (all_count >= 2)
         return np.where(ok, hit_mean - all_mean, np.nan)
     hit_ts = np.bincount(data.ts_index[hit], minlength=data.timestamps.shape[0]) > 0
     baseline = float(np.nanmean(all_mean)) if np.any(~np.isnan(all_mean)) else float("nan")
     return np.where(hit_ts & ~np.isnan(all_mean), all_mean - baseline, np.nan)
+
+
+def mean_test(series: F64, horizon: int) -> MeanTest:
+    """The engine's inference on an event series (block-clustered, see block_length)."""
+    event_index = np.flatnonzero(~np.isnan(series)).astype(np.int64)
+    return block_clustered_mean_test(series[event_index], event_index, block_length(horizon))
+
+
+def cost_adjusted_bps(effect: float, kind: Kind, costs: CostModel) -> float:
+    return _cost_adjusted_bps(effect, kind, costs)
 
 
 def _cost_adjusted_bps(effect: float, kind: Kind, costs: CostModel) -> float:
