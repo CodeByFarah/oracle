@@ -26,6 +26,7 @@ from oracle.data.query import connect
 from oracle.ingestion.pipeline import ingest_payloads
 from oracle.ingestion.rebuild import RebuildError, rebuild
 from oracle.normalization.payloads import NormalizationError
+from oracle.quality.checks import run_quality
 from oracle.registry.datasets import register_manifest
 from oracle.registry.db import make_engine
 from oracle.schemas.conform import ContractViolationError
@@ -199,6 +200,26 @@ def dataset_show(kind: DatasetKind, version: _Version = None) -> None:
     typer.echo(f"rows            {manifest.row_count}")
     typer.echo(f"partitions      {len(manifest.partitions)}")
     typer.echo(f"raw sources     {len(manifest.sources)}")
+
+
+@dataset_app.command("quality")
+def dataset_quality(kind: DatasetKind, version: _Version = None) -> None:
+    """Run data-quality checks; exit 1 if any ERROR-level issue is found."""
+    lake = Lake(get_settings().data_root)
+    manifest = lake.load_manifest(kind, version) if version else lake.head(kind)
+    if manifest is None:
+        raise _fail(RuntimeError(f"no {kind} dataset in {lake.root}"))
+    report = run_quality(lake, manifest, now=datetime.now(UTC))
+    typer.echo(f"{report.dataset} {report.dataset_version}: {report.rows} rows")
+    for issue in report.issues:
+        typer.echo(
+            f"  {issue.severity.upper():<7} {issue.check:<28} {issue.count:>8}  {issue.detail}"
+        )
+    for check, reason in report.unchecked.items():
+        typer.echo(f"  UNCHECKED {check:<26} {reason}")
+    typer.echo("PASSED" if report.passed else "FAILED")
+    if not report.passed:
+        raise typer.Exit(code=1)
 
 
 @dataset_app.command("rebuild")
