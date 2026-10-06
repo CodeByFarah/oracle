@@ -21,7 +21,23 @@ docker compose up -d --wait               # PostgreSQL 17 on 127.0.0.1:${ORACLE_
 uv run python -m alembic upgrade head     # apply metadata schema
 uv run oracle info                        # environment and safety-gate status
 uv run oracle db-check
+docker build -f docker/sandbox.Dockerfile -t oracle-sandbox:1 .   # sandbox for AI-written code
 ```
+
+## Research loop
+
+```powershell
+uv run oracle ingest synthetic --symbols SPY,QQQ,IWM,XLF,XLK --start 2024-03-01 --end 2024-03-22
+uv run oracle dataset quality bars        # research is blocked on any ERROR
+uv run oracle loop run-once --budget 3    # features -> state -> world snapshot -> discovery
+                                          # -> adversarial lab -> paper trading -> lifecycle
+```
+
+Each cycle writes `data/loop/<timestamp>.json`, and when PostgreSQL is configured it also writes
+the full hypothesis-test ledger, hypotheses and research journal there. On synthetic data the
+expected result is an honest null: no validated hypotheses. Live trading is never invoked by the
+loop, and no real broker adapter exists. See [docs/roadmap.md](docs/roadmap.md) for what is not
+built.
 
 `python -m alembic` is used instead of the `alembic` executable because Windows Application
 Control may block unsigned console-script shims in `.venv\Scripts`.
