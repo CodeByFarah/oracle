@@ -41,6 +41,29 @@ def info() -> None:
     typer.echo(f"live_trading      {'ENABLED' if settings.live_trading_enabled else 'disabled'}")
 
 
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Loopback only: the API has no authentication."),
+    port: int = typer.Option(8765, min=1024, max=65535),
+) -> None:
+    """Serve the read-only dashboard and API on this machine."""
+    if host not in LOOPBACK_HOSTS:
+        typer.echo(
+            f"error: refusing to bind {host!r}; the API is unauthenticated and loopback-only",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    import uvicorn
+
+    from oracle.api.app import create_app
+
+    typer.echo(f"ORACLE dashboard: http://{host}:{port}/  (read-only; Ctrl+C to stop)")
+    uvicorn.run(create_app(get_settings()), host=host, port=port, log_level="warning")
+
+
 @app.command("db-check")
 def db_check() -> None:
     """Verify connectivity to the metadata database and report the migration revision."""

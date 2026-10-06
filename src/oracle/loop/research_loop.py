@@ -140,6 +140,24 @@ class LakeResearchContext:
         entries = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
         return [e for e in entries if e.get("question") == query]
 
+    def _next_local(self) -> int:
+        """Local hypothesis ids keep counting across cycles (no database configured)."""
+        path = self._path("hypotheses.jsonl")
+        if not path.exists():
+            return 1
+        lines = path.read_text("utf-8").splitlines()
+        return len({json.loads(line)["hypothesis_id"] for line in lines if line.strip()}) + 1
+
+    def save_hypothesis(self, hypothesis: Hypothesis) -> None:
+        """Append-only history; the latest line per hypothesis_id is its current state."""
+        with self._path("hypotheses.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(hypothesis.model_dump_json() + "\n")
+
+    def save_adversarial(self, hypothesis_id: str, report: AdversarialReport) -> None:
+        self._path("adversarial", f"{hypothesis_id}.json").write_text(
+            report.model_dump_json(indent=2), encoding="utf-8"
+        )
+
     def record(
         self, result: DiscoveryResult, entry: JournalEntry, hypotheses: list[Hypothesis]
     ) -> None:
@@ -150,10 +168,11 @@ class LakeResearchContext:
             handle.write(entry.model_dump_json() + "\n")
         for h in hypotheses:
             if self.engine is not None:
-                self.hypotheses.append(register_hypothesis(self.engine, h, actor="research-loop"))
+                registered = register_hypothesis(self.engine, h, actor="research-loop")
             else:
-                local_id = f"H-L{len(self.hypotheses) + 1:06d}"
-                self.hypotheses.append(h.model_copy(update={"hypothesis_id": local_id}))
+                registered = h.model_copy(update={"hypothesis_id": f"H-L{self._next_local():06d}"})
+            self.hypotheses.append(registered)
+            self.save_hypothesis(registered)
         if self.engine is not None:
             save_discovery(self.engine, result)
             add_journal_entry(self.engine, entry)
@@ -283,6 +302,8 @@ def run_once(
     bars: pa.Table | None = None
     for h in validated:
         judged, lab_report = _adversarial(ctx, h, cfg)
+        ctx.save_hypothesis(judged)
+        ctx.save_adversarial(judged.hypothesis_id or "unregistered", lab_report)
         if lab_report.verdict != "survived":
             rejections[judged.hypothesis_id or "unregistered"] = lab_report.failed
             continue

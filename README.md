@@ -42,6 +42,18 @@ built.
 `python -m alembic` is used instead of the `alembic` executable because Windows Application
 Control may block unsigned console-script shims in `.venv\Scripts`.
 
+## Dashboard
+
+```powershell
+uv run oracle serve        # http://127.0.0.1:8765/ (read-only, loopback only)
+```
+
+The dashboard has these tabs: Market (world snapshot), Discoveries (every hypothesis, with its
+evidence, mechanisms and adversarial checks), Research lab (loop cycles and a searchable
+journal), Strategies, Portfolio (paper only), Risk, Data (versions, integrity, quality,
+providers) and Experiments. Every value comes from a stored artifact. The API under `/api/*`
+has GET endpoints only.
+
 ## Quality gates (same as CI)
 
 ```powershell
@@ -62,6 +74,8 @@ uv run oracle providers                       # what is enabled, and why not
 uv run oracle ingest synthetic --symbols SPY,QQQ --start 2024-01-02 --end 2024-01-05
 uv run oracle ingest fred --series DGS10,CPIAUCSL   # needs free FRED_API_KEY
 uv run oracle ingest edgar --cik 320193             # needs ORACLE_SEC_USER_AGENT (free)
+uv run oracle ingest alpaca --symbols SPY,QQQ --start 2024-01-02 --end 2024-01-31  # free account
+uv run oracle ingest tiingo --symbols SPY,QQQ --start 2020-01-02 --end 2024-12-31  # free account, 1d
 uv run oracle dataset show bars
 uv run oracle dataset verify bars                   # re-hash every file of the version
 ```
@@ -71,6 +85,8 @@ uv run oracle dataset verify bars                   # re-hash every file of the 
 | `synthetic` | bars (tagged `is_synthetic`; **not market data**) | free | always |
 | `fred` | macro_observations, all ALFRED vintages | free | `FRED_API_KEY` set |
 | `sec_edgar` | filings | free | `ORACLE_SEC_USER_AGENT` set |
+| `alpaca` | bars, 1m/1d, SIP, raw (unadjusted), older than 15 min | free account | `APCA_API_KEY_ID` + `APCA_API_SECRET_KEY` set |
+| `tiingo` | bars, 1d, unadjusted | free account | `TIINGO_API_KEY` set |
 | `databento` | bars | **paid, optional** | key + `uv sync --extra databento`; refused above `ORACLE_DATABENTO_MAX_COST_USD` (default 0) |
 
 Ingestion writes raw source bytes first, under `data/raw/` (content-addressed by SHA-256). It

@@ -7,7 +7,7 @@ root_package = oracle
 name = ORACLE layer model (docs/architecture.md)
 type = layers
 layers =
-    oracle.cli : oracle.loop
+    oracle.cli : oracle.loop : oracle.api
     oracle.execution
     oracle.strategy : oracle.portfolio : oracle.risk
     oracle.research_agent

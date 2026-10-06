@@ -13,6 +13,11 @@ paid service, and out-of-pocket spending is a hard **$0**.
    - `synthetic`: deterministic, every row tagged `is_synthetic`.
    - `fred`: FRED/ALFRED, free key.
    - `sec_edgar`: SEC EDGAR, no key, declared User-Agent.
+   - `alpaca` (added later): Alpaca free market-data plan, free account, no payment. It
+     provides SIP minute and daily bars; requests always end 16 minutes before now, because the
+     free plan excludes the latest 15.
+   - `tiingo` (added later): Tiingo free plan, daily unadjusted prices. Requests are spaced at
+     least 72 s apart (50 requests per hour).
 2. **Databento stays implemented but optional:**
    - Disabled unless the `databento` extra is installed *and* `DATABENTO_API_KEY` is set.
    - A cost guard asks Databento for a free price quote before any download and refuses
@@ -34,5 +39,6 @@ paid service, and out-of-pocket spending is a hard **$0**.
 - **When a research experiment genuinely needs licensed intraday data,** work stops and the
   blocked capability is stated explicitly, together with the closest free alternative (for
   example, daily-frequency research on free macro or filings data).
-- **Free daily equity prices** without restrictive terms remain an open question; see the
-  roadmap.
+- **Free real prices now exist,** through Alpaca and Tiingo. Their terms allow personal research
+  only, so neither raw nor derived data may be redistributed. Prices are stored unadjusted;
+  corporate-action adjustment remains an open reference-data gap.

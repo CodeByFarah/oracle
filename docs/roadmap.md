@@ -25,25 +25,32 @@ Constraint: **$0 out-of-pocket spending** ([ADR 0002](adr/0002-free-data-first.m
 | 15 | Execution gateway, order validation, kill switch, simulated/paper brokers | Done |
 | 16 | Live execution behind gates | Done as gates only; **no real broker adapter exists** |
 | 17 | Continuous research loop (`oracle loop run-once`) | Done |
+| 18 | Free real-data price providers: Alpaca (minute/daily bars, older than 15 min) and Tiingo (daily) | Done. Fixture-tested only; never called live |
+| 19 | Read-only API and dashboard (`oracle serve`, loopback only) | Done |
 
 ## Not built, or blocked (honest gaps)
 
-- **Licensed intraday market data.** Blocked by the $0 constraint. Every experiment so far runs
-  on synthetic bars, which contain no real effects; the loop correctly reports null results.
-- **Free daily equity prices.** No source has been licence-reviewed yet.
+- **Real-data research.** Alpaca and Tiingo adapters exist (free accounts, no payment), but no
+  key is configured, so every experiment so far ran on synthetic bars. Those bars contain no
+  real effects, and the loop correctly reports null results. Both free plans are for personal,
+  non-redistributed use. Alpaca's free plan excludes the most recent 15 minutes, and Tiingo's
+  free plan allows 50 requests an hour.
 - **Reference data:** corporate actions, survivorship/delistings and symbology. Interfaces only;
   the quality report lists them as unchecked.
 - **Options, news and realtime providers.** Protocols only, with no implementations.
 - **LLM planner.** It accepts an injected completion function. No Anthropic or other API client
   ships, because that would cost money.
 - **Real broker adapter.** Deliberately absent; live trading cannot happen.
-- **Dashboard and API** (spec sections 31-33). Not built yet. The CLI and lake/DB artifacts are
-  the only interfaces.
+- **Dashboard scope.** It is read-only, has no authentication and binds to loopback only. It
+  has no charts, no realtime streaming and no write actions: research and trading are run from
+  the CLI.
 - **CI.** The workflow exists but has never run on GitHub, because no remote is configured.
-- **Untested live integrations:** the FRED and EDGAR network calls, and the Databento SDK calls.
+- **Untested live integrations:** the FRED, EDGAR, Alpaca and Tiingo network calls, and the
+  Databento SDK calls. All are tested against saved sample responses only.
 
 ## First milestone: Discovery Engine Alpha
 
 The machinery is complete and calibrated. On null data it validates nothing; with planted
 effects it finds them, and the adversarial lab rejects effects that cannot pay their costs.
-A real-data milestone still needs a free, licence-compatible price source.
+The next milestone is real data. It needs free Alpaca or Tiingo keys in `.env`, then a run of
+`oracle ingest alpaca` or `oracle ingest tiingo`, then the loop.

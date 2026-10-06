@@ -13,7 +13,7 @@ A module may import only from its own layer or from layers below it.
 
 | Layer | Packages | Responsibility |
 |---|---|---|
-| top | `cli`, `loop` | Entry points; the continuous research loop |
+| top | `cli`, `loop`, `api` | Entry points; the continuous research loop; read-only API and dashboard |
 | L6 | `execution` | Paper/Simulation/Live brokers. Live is disabled by default |
 | L5 | `strategy`, `portfolio`, `risk` | Strategy lifecycle, portfolio construction, deterministic risk veto |
 | L4 | `research_agent` | Sandboxed AI researcher; uses only the typed research tool API |
@@ -54,7 +54,7 @@ evidence will refuse a dirty working tree.
 | Store | Contents | Status |
 |---|---|---|
 | PostgreSQL 17 | `audit_log` (append-only, trigger-enforced), `experiments`, `dataset_versions`, `hypothesis_tests` (full ledger), `hypotheses` (H-nnnnnnn), `journal_entries` (full-text search) | Live (migrations `0001`-`0003`) |
-| Lake under `ORACLE_DATA_ROOT` (`oracle.data.lake`) | `raw/`, `normalized/`, `manifests/`, `features/` (cached, hash-verified), `research/` (results, journal), `loop/` (cycle reports) | Live |
+| Lake under `ORACLE_DATA_ROOT` (`oracle.data.lake`) | `raw/`, `normalized/`, `manifests/`, `features/` (cached, hash-verified), `research/` (results, journal, hypotheses, adversarial reports), `loop/` (cycle reports) | Live |
 | DuckDB | SQL over exactly the files of one dataset version | Live |
 | Redis, streaming broker | Realtime state | Deferred until realtime work needs them |
 

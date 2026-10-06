@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORACLE Research</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dfe3e8;
+    --accent: #2f5d8a; --good: #2e7d4f; --bad: #b3261e; --warn: #9a6a00; --chip: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --panel: #191d22; --text: #e3e7ec; --muted: #9aa4b1; --line: #2a3038;
+            --accent: #7fa8d6; --good: #6cc08f; --bad: #f08a80; --warn: #e0b45a; --chip: #232931; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between;
+           padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .04em; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--line);
+        background: var(--panel); }
+  nav button { border: 0; background: none; color: var(--muted); padding: 6px 10px; border-radius: 6px;
+               font: inherit; cursor: pointer; }
+  nav button[aria-selected="true"] { background: var(--chip); color: var(--text); font-weight: 600; }
+  main { padding: 16px 20px 40px; max-width: 1200px; margin: 0 auto; }
+  section { display: none; } section.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+          margin-bottom: 14px; overflow-x: auto; }
+  .card h2 { font-size: 13px; margin: 10px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .card h3 { font-size: 15px; margin: 4px 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  pre { white-space: pre-wrap; margin: 0; font: 13px/1.5 ui-monospace, Consolas, monospace; }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
+  .good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); } .muted { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+  .stat { background: var(--chip); border-radius: 6px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  input[type=search] { width: 100%; max-width: 360px; padding: 6px 10px; border: 1px solid var(--line);
+                       border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
+  .notice { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--chip); border-radius: 4px; margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ORACLE · research platform</h1>
+  <span class="meta" id="meta">loading…</span>
+</header>
+<nav role="tablist" id="tabs"></nav>
+<main>
+  <section id="market"></section>
+  <section id="discoveries"></section>
+  <section id="lab"></section>
+  <section id="strategies"></section>
+  <section id="portfolio"></section>
+  <section id="risk"></section>
+  <section id="data"></section>
+  <section id="experiments"></section>
+</main>
+<script>
+"use strict";
+// Everything is rendered with text nodes, never parsed as HTML: artifact contents are data.
+const VIEWS = [["market","Market"],["discoveries","Discoveries"],["lab","Research lab"],["strategies","Strategies"],
+               ["portfolio","Portfolio"],["risk","Risk"],["data","Data"],["experiments","Experiments"]];
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v; else node.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (c === null || c === undefined) continue;
+    node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return node;
+}
+const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(Number(x))) ? "–" : Number(x).toFixed(d);
+const sci = (x) => (x === null || x === undefined) ? "–" : Number(x).toExponential(2);
+const short = (s, n = 23) => (s ? String(s).slice(0, n) : "–");
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+function card(title, ...body) { return el("div", { class: "card" }, title ? el("h2", {}, title) : null, ...body); }
+function table(headers, rows, numeric = []) {
+  const head = el("tr", {}, ...headers.map(h => el("th", {}, h)));
+  const body = rows.map(r => el("tr", {}, ...r.map((v, i) => el("td", numeric.includes(i) ? { class: "num" } : {}, v))));
+  return el("table", {}, el("thead", {}, head), el("tbody", {}, ...body));
+}
+function empty(text) { return el("p", { class: "muted" }, text); }
+function fill(id, ...nodes) { document.getElementById(id).replaceChildren(...nodes); }
+async function guarded(id, fn) {
+  try { await fn(); } catch (e) { fill(id, card(null, el("p", { class: "muted" }, String(e.message)))); }
+}
+
+async function market() {
+  const w = await api("/api/world");
+  const s = w.snapshot;
+  const regime = s.market_regime ? s.market_regime.label : "unknown";
+  const stats = el("div", { class: "grid" },
+    el("div", { class: "stat" }, "Volatility", el("b", {}, s.volatility_state)),
+    el("div", { class: "stat" }, "Liquidity proxy", el("b", {}, s.liquidity_state)),
+    el("div", { class: "stat" }, "Regime", el("b", {}, regime)),
+    el("div", { class: "stat" }, "Anomalies", el("b", {}, (s.anomalies || []).length)),
+    el("div", { class: "stat" }, "Confidence", el("b", {}, fmt(s.confidence))));
+  const vars = Object.entries((s.state && s.state.variables) || {})
+    .map(([k, v]) => [k, fmt(v, 5), ((s.state.epistemic_status || {})[k]) || "–"]);
+  const edges = (s.cross_asset_signals || []).map(e => [e.kind,
+    e.source + (e.direction === "undirected" ? " ↔ " : " → ") + e.target, fmt(e.strength), sci(e.p_value), fmt(e.stability)]);
+  fill("market",
+    card("What the market looks like", stats),
+    card("Summary (rendered from structured data)", el("pre", {}, w.text)),
+    card("Market state variables", vars.length ? table(["variable", "value", "epistemic status"], vars, [1]) : empty("No state variables.")),
+    card("Cross-asset signals (statistical association, not causation)",
+      edges.length ? table(["kind", "pair", "r", "p", "stability"], edges, [2, 3, 4]) : empty("No edge passed the multiple-testing threshold.")));
+}
+
+function statusClass(status) {
+  if (/reject|fail|invalid/.test(status)) return "bad";
+  if (/surviv|validat/.test(status)) return "good";
+  return "";
+}
+
+function hypothesisCard(h) {
+  const adv = h.adversarial;
+  const obs = (h.observations || []).map(o => [o.split, o.n_events, fmt(o.effect_bps), fmt(o.t_stat), sci(o.p_value),
+    o.p_adjusted === null || o.p_adjusted === undefined ? "–" : fmt(o.p_adjusted, 4), fmt(o.cost_adjusted_effect_bps)]);
+  const checks = adv ? (adv.checks || []).map(c => [c.name,
+    el("span", { class: c.status === "passed" ? "good" : c.status === "failed" ? "bad" : "muted" }, c.status), c.detail || ""]) : [];
+  const pred = h.prediction || {};
+  return card(null,
+    el("h3", {}, h.hypothesis_id + " ", el("span", { class: "chip " + statusClass(String(h.status)) }, h.status)),
+    el("p", {}, h.statement),
+    el("p", { class: "muted" }, "Discovery score " + (adv && adv.score ? fmt(adv.score.score) : "not yet evaluated") +
+      " · predicted " + (pred.direction || "–") + " " + fmt(pred.expected_effect_bps) + " bps over " + (pred.horizon_bars ?? "–") + " bars"),
+    el("h2", {}, "Observed evidence (historical, in-sample and out-of-sample)"),
+    obs.length ? table(["split", "events", "effect bps", "t", "p", "BH p", "after costs bps"], obs, [1, 2, 3, 4, 5, 6]) : empty("No observations."),
+    el("h2", {}, "Candidate mechanisms (speculation, not tested)"),
+    el("ul", {}, ...(h.mechanisms || []).map(m => el("li", {}, m.name + ": " + m.explanation))),
+    el("h2", {}, "Adversarial checks and failure cases"),
+    adv ? table(["check", "result", "detail"], checks) : empty("Not yet run through the adversarial lab."),
+    el("h2", {}, "Invalidated if"),
+    el("ul", {}, ...(h.invalidation || []).map(i => el("li", {}, i.rule))),
+    el("p", { class: "muted" }, "Protocol " + h.protocol_hash + " · data " + short(h.dataset_version) + " · features " + short(h.feature_set_id)));
+}
+
+async function discoveries() {
+  const items = await api("/api/hypotheses");
+  fill("discoveries",
+    card(null, el("p", { class: "notice" }, "Every hypothesis is listed, including rejected ones. Historical statistics are not a promise of future returns.")),
+    ...(items.length ? items.map(hypothesisCard)
+      : [card("Discoveries", empty("No hypothesis has survived discovery-stage FDR control. On synthetic or efficient data this is the expected outcome."))]));
+}
+
+async function lab() {
+  const [loops, journal] = await Promise.all([api("/api/loops"), api("/api/journal")]);
+  const loopRows = loops.map(l => [l.name, l.experiments, l.tests_run, l.validated_hypotheses, l.adversarial_survivors, (l.notes || []).join(" · ")]);
+  const search = el("input", { type: "search", placeholder: "Search the research journal…", "aria-label": "Search journal" });
+  const list = el("div");
+  const render = (entries) => list.replaceChildren(...(entries.length ? entries.map(e => card(null,
+    el("h3", {}, e.question || "–"), el("p", {}, e.result || ""), el("p", { class: "muted" }, e.interpretation || ""),
+    el("p", { class: "muted" }, "Method: " + (e.method || "–")), el("p", { class: "muted" }, "Next: " + (e.next_experiment || "–"))))
+    : [empty("No journal entries.")]));
+  render(journal);
+  let timer = null;
+  search.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try { render(await api("/api/journal?q=" + encodeURIComponent(search.value))); } catch (_) { /* keep last view */ }
+    }, 200);
+  });
+  fill("lab",
+    card("Research loop cycles", loopRows.length
+      ? table(["cycle", "experiments", "tests", "validated", "survived lab", "notes"], loopRows, [1, 2, 3, 4])
+      : empty("No cycles yet: run `oracle loop run-once`.")),
+    card("Research journal", search), list);
+}
+
+async function strategies() {
+  const items = await api("/api/strategies");
+  const rows = items.map(s => [s.strategy_id, s.hypothesis_id, s.stage, (s.lifecycle || {}).state || "–", s.paper_fills, s.paper_rejections,
+    s.feedback && s.feedback.overall ? fmt(s.feedback.overall.mean_realized_bps) : "–", ((s.lifecycle || {}).reasons || []).join("; ")]);
+  fill("strategies", card("Strategies (promotion stops at paper trading)", rows.length
+    ? table(["strategy", "hypothesis", "stage", "lifecycle", "fills", "rejected", "realized bps", "reasons"], rows, [4, 5, 6])
+    : empty("No strategy exists: no hypothesis has survived the adversarial lab.")));
+}
+
+async function portfolio() {
+  const items = await api("/api/strategies");
+  const rows = items.flatMap(s => ((s.feedback || {}).diagnosis || []).map(d => [s.strategy_id, d]));
+  fill("portfolio",
+    card(null, el("p", { class: "notice" }, "All positions are simulated paper positions. No real money is traded and no real broker is connected.")),
+    card("Paper trading feedback", rows.length ? table(["strategy", "diagnosis"], rows) : empty("No paper trading has run yet.")));
+}
+
+async function risk() {
+  const [r, h] = await Promise.all([api("/api/risk"), api("/api/health")]);
+  const limits = Object.entries(r.limits).filter(([, v]) => typeof v !== "object" || v === null)
+    .map(([k, v]) => [k, typeof v === "number" ? fmt(v, 3) : String(v)]);
+  fill("risk",
+    card("Safety state", el("div", { class: "grid" },
+      el("div", { class: "stat" }, "Live trading", el("b", { class: r.live_trading_enabled ? "bad" : "good" }, r.live_trading_enabled ? "ENABLED" : "disabled")),
+      el("div", { class: "stat" }, "Kill switch", el("b", { class: r.kill_switch_engaged ? "warn" : "" }, r.kill_switch_engaged ? "engaged" : "off")),
+      el("div", { class: "stat" }, "Live broker adapter", el("b", {}, "none")),
+      el("div", { class: "stat" }, "Environment", el("b", {}, h.environment)))),
+    card("Risk limits (the risk engine can veto any order)", table(["limit", "value"], limits, [1])));
+}
+
+async function data() {
+  const [items, h] = await Promise.all([api("/api/data?quality=true"), api("/api/health")]);
+  const rows = items.map(d => {
+    if (!d.present) return [d.dataset, "–", "–", "–", el("span", { class: "muted" }, "not ingested"), "–"];
+    const errors = d.quality ? (d.quality.issues || []).filter(i => i.severity === "error").length : 0;
+    return [d.dataset, short(d.version), d.rows, d.partitions,
+      d.integrity_problems.length ? el("span", { class: "bad" }, d.integrity_problems.length + " problems") : el("span", { class: "good" }, "verified"),
+      d.quality ? el("span", { class: errors ? "bad" : "good" }, errors ? errors + " errors" : "passed") : "–"];
+  });
+  const unchecked = items.filter(d => d.quality && d.quality.unchecked)
+    .flatMap(d => Object.entries(d.quality.unchecked).map(([k, v]) => [d.dataset, k, String(v)]));
+  const providers = h.providers.map(p => [p.name,
+    p.enabled ? el("span", { class: "good" }, "enabled") : el("span", { class: "muted" }, "disabled"),
+    p.requires_payment ? "paid (optional)" : "free", p.synthetic ? "synthetic" : "real data", p.reason || ""]);
+  fill("data",
+    card("Datasets", table(["dataset", "version", "rows", "files", "integrity", "quality"], rows, [2, 3])),
+    card("Not checked (no data source for these checks yet)", unchecked.length ? table(["dataset", "check", "reason"], unchecked) : empty("–")),
+    card("Data providers", table(["provider", "status", "cost", "kind", "note"], providers)));
+}
+
+async function experiments() {
+  const items = await api("/api/experiments");
+  const rows = items.map(e => [e.protocol_hash, e.name, (e.horizons || []).join(", "), e.n_tests, e.discovery_survivors, e.validated, short(e.dataset_version, 19)]);
+  fill("experiments", card("Pre-registered experiments (every test is counted in the ledger)", rows.length
+    ? table(["protocol", "name", "horizons", "tests", "FDR survivors", "validated", "dataset"], rows, [3, 4, 5])
+    : empty("No experiments yet.")));
+}
+
+const LOADERS = { market, discoveries, lab, strategies, portfolio, risk, data, experiments };
+function show(id) {
+  for (const [v] of VIEWS) {
+    document.getElementById(v).classList.toggle("active", v === id);
+    document.getElementById("tab-" + v).setAttribute("aria-selected", String(v === id));
+  }
+  guarded(id, LOADERS[id]);
+  try { localStorage.setItem("oracle-tab", id); } catch (_) { /* storage unavailable */ }
+}
+const nav = document.getElementById("tabs");
+for (const [id, label] of VIEWS) {
+  const b = el("button", { id: "tab-" + id, role: "tab", "aria-selected": "false" }, label);
+  b.addEventListener("click", () => show(id));
+  nav.append(b);
+}
+api("/api/health").then(h => {
+  document.getElementById("meta").textContent = "v" + h.version + " · " + h.environment + " · live trading " +
+    (h.live_trading_enabled ? "ENABLED" : "disabled") + " · research software, no profitability claims";
+}).catch(() => { document.getElementById("meta").textContent = "API unavailable"; });
+let start = "market";
+try { start = localStorage.getItem("oracle-tab") || "market"; } catch (_) { /* ignore */ }
+show(Object.prototype.hasOwnProperty.call(LOADERS, start) ? start : "market");
+</script>
+</body>
+</html>
