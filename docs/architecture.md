@@ -13,7 +13,7 @@ A module may import only from its own layer or from layers below it.
 
 | Layer | Packages | Responsibility |
 |---|---|---|
-| top | `cli` (later `apps/api`, `apps/web`) | Entry points |
+| top | `cli`, `loop` | Entry points; the continuous research loop |
 | L6 | `execution` | Paper/Simulation/Live brokers. Live is disabled by default |
 | L5 | `strategy`, `portfolio`, `risk` | Strategy lifecycle, portfolio construction, deterministic risk veto |
 | L4 | `research_agent` | Sandboxed AI researcher; uses only the typed research tool API |
@@ -53,9 +53,9 @@ evidence will refuse a dirty working tree.
 
 | Store | Contents | Status |
 |---|---|---|
-| PostgreSQL 17 | `audit_log` (append-only, enforced by trigger), `experiments`, `dataset_versions`; later hypotheses, test ledger, models, journal | Live (migrations `0001`, `0002`) |
-| Lake under `ORACLE_DATA_ROOT` (`oracle.data.lake`) | `raw/` (content-addressed source bytes plus metadata), `normalized/` (immutable Parquet partitions), `manifests/` (versioned, content-hashed) | Live (Phase 1) |
-| DuckDB | Analytical SQL over the Parquet lake | Phase 2 |
+| PostgreSQL 17 | `audit_log` (append-only, trigger-enforced), `experiments`, `dataset_versions`, `hypothesis_tests` (full ledger), `hypotheses` (H-nnnnnnn), `journal_entries` (full-text search) | Live (migrations `0001`-`0003`) |
+| Lake under `ORACLE_DATA_ROOT` (`oracle.data.lake`) | `raw/`, `normalized/`, `manifests/`, `features/` (cached, hash-verified), `research/` (results, journal), `loop/` (cycle reports) | Live |
+| DuckDB | SQL over exactly the files of one dataset version | Live |
 | Redis, streaming broker | Realtime state | Deferred until realtime work needs them |
 
 Timestamps are UTC. Normalized rows carry both `event_ts` (when it happened) and `available_ts`
@@ -64,7 +64,14 @@ Timestamps are UTC. Normalized rows carry both `event_ts` (when it happened) and
 ## Safety gates (current state)
 
 - `Settings.live_trading_enabled` defaults to `false`, and setting it outside
-  `environment=live` fails at load time. Phase 16 adds the remaining gates: a time-boxed human
-  authorization record and a kill switch.
+  `environment=live` fails at load time.
+- Every order goes through `ExecutionGateway`: validation, then kill switch, then risk engine
+  (veto), then participation policy, then broker. Every outcome is audited.
+- `LiveBroker` also requires an HMAC-signed, time-boxed human authorization (with per-order and
+  daily caps) and a real broker adapter. No real adapter exists, so live orders always refuse.
+- Strategies are created only from hypotheses that survived the adversarial lab. Automatic
+  promotion stops at paper trading; later stages need a human authorization id.
+- AI-written code runs only in the Docker sandbox: no network, read-only root, cap-drop ALL,
+  non-root user, resource limits and a timeout.
 - Secrets are `SecretStr` and never rendered. Logs redact keys that look sensitive.
 - `.env`, vendor data and research artifacts are git-ignored.
