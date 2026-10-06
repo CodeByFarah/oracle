@@ -168,6 +168,41 @@ def ingest_edgar(
     _run(settings, provider, payloads, register=register)
 
 
+@ingest_app.command("alpaca")
+def ingest_alpaca(
+    symbols: _Symbols,
+    start: _Day,
+    end: _Day,
+    interval: _Interval = "1m",
+    register: _Register = True,
+) -> None:
+    """Ingest Alpaca bars (free plan; needs APCA_API_KEY_ID and APCA_API_SECRET_KEY)."""
+    settings = get_settings()
+    try:
+        provider = registry.build_alpaca(settings)
+        payloads = provider.fetch_bars(_bar_request(symbols, start, end, interval))
+    except (ProviderUnavailableError, ProviderRequestError, ValidationError) as exc:
+        raise _fail(exc) from exc
+    _run(settings, provider, payloads, register=register)
+
+
+@ingest_app.command("tiingo")
+def ingest_tiingo(
+    symbols: _Symbols,
+    start: _Day,
+    end: _Day,
+    register: _Register = True,
+) -> None:
+    """Ingest Tiingo daily bars (free plan, 50 requests/hour; needs TIINGO_API_KEY)."""
+    settings = get_settings()
+    try:
+        provider = registry.build_tiingo(settings)
+        payloads = provider.fetch_bars(_bar_request(symbols, start, end, "1d"))
+    except (ProviderUnavailableError, ProviderRequestError, ValidationError) as exc:
+        raise _fail(exc) from exc
+    _run(settings, provider, payloads, register=register)
+
+
 @ingest_app.command("databento")
 def ingest_databento(
     symbols: _Symbols,

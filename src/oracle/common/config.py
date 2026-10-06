@@ -34,6 +34,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         frozen=True,
+        populate_by_name=True,  # accept field names as well as vendor env-style aliases
     )
 
     environment: Environment = Environment.DEV
@@ -53,6 +54,20 @@ class Settings(BaseSettings):
     )
     # SEC fair-access policy: descriptive User-Agent with contact, e.g. "ORACLE research you@x".
     sec_user_agent: str | None = None
+    # Alpaca free market-data plan (free account, no payment). Alpaca's env names are accepted.
+    alpaca_api_key_id: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("APCA_API_KEY_ID", "ORACLE_ALPACA_API_KEY_ID"),
+    )
+    alpaca_api_secret_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("APCA_API_SECRET_KEY", "ORACLE_ALPACA_API_SECRET_KEY"),
+    )
+    # Tiingo free plan (free account, no payment).
+    tiingo_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TIINGO_API_KEY", "ORACLE_TIINGO_API_KEY"),
+    )
     live_trading_enabled: bool = False
     # HMAC key used to sign human live-trading authorizations (Phase 16). Never committed.
     live_authorization_secret: SecretStr | None = None
