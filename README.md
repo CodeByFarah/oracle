@@ -1,6 +1,6 @@
 # ORACLE
 
-Autonomous Market Intelligence & Quantitative Research Platform. **Private repository.**
+Autonomous Market Intelligence & Quantitative Research Platform.
 
 ORACLE is research software. It is built to discover candidate market phenomena and then try
 hard to falsify them. It makes no claim that any strategy is profitable, and live execution is
@@ -9,6 +9,28 @@ disabled by default.
 - Architecture and layer model: [docs/architecture.md](docs/architecture.md)
 - Foundational decisions: [docs/adr/0001-foundational-decisions.md](docs/adr/0001-foundational-decisions.md)
 - Roadmap and phase status: [docs/roadmap.md](docs/roadmap.md)
+
+## Run it yourself
+
+No API keys or accounts needed: the quickstart uses built-in synthetic data (clearly tagged as not
+market data). You need [Git](https://git-scm.com/downloads), [uv](https://docs.astral.sh/uv/) and
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) (running).
+
+```powershell
+git clone https://github.com/CodeByFarah/oracle.git
+cd oracle
+uv sync                                    # Python 3.13 + dependencies
+Copy-Item .env.example .env                # macOS/Linux: cp .env.example .env
+docker compose up -d --wait                # PostgreSQL on 127.0.0.1:55433
+uv run python -m alembic upgrade head
+uv run python -m oracle ingest synthetic --symbols SPY,QQQ,IWM,XLF,XLK --start 2024-03-01 --end 2024-03-22
+uv run python -m oracle loop run-once --budget 3
+uv run python -m oracle serve              # open http://127.0.0.1:8765/
+```
+
+One research cycle takes under a minute. On synthetic data the expected outcome is an honest null
+(no validated hypotheses); the dashboard shows the world snapshot, every hypothesis tested, the
+adversarial checks and the research journal. Stop the database with `docker compose down`.
 
 ## Setup (Windows / PowerShell)
 
