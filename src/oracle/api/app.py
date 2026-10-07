@@ -24,6 +24,7 @@ from oracle import __version__
 from oracle.common.config import Settings
 from oracle.data.lake import Lake
 from oracle.data.providers.registry import provider_statuses
+from oracle.data.query import connect
 from oracle.quality.checks import run_quality
 from oracle.risk.engine import RiskConfig
 from oracle.schemas.market import DatasetKind
@@ -31,6 +32,8 @@ from oracle.world_model.snapshot import WorldSnapshot, render_text
 
 LOOP_NAME = re.compile(r"^\d{8}T\d{6}$")
 PROTOCOL = re.compile(r"^proto-[0-9a-f]{24}$")
+SYMBOL = r"^[A-Z0-9.\-]{1,15}$"
+INTERVAL = r"^\d{1,3}[mhd]$"
 
 
 def _read_json(path: Path) -> Any:
@@ -112,6 +115,64 @@ def create_app(settings: Settings, *, kill_switch_path: Path | None = None) -> F
     @app.get("/api/data")
     def data(quality: bool = False) -> list[dict[str, Any]]:
         return [_dataset_summary(lake, kind, quality) for kind in DatasetKind]
+
+    @app.get("/api/symbols")
+    def symbols() -> list[dict[str, Any]]:
+        """Symbols and intervals in the current bars version, with their coverage."""
+        manifest = lake.head(DatasetKind.BARS)
+        if manifest is None:
+            return []
+        con = connect(lake, [manifest], verify=False)
+        try:
+            rows = con.execute(
+                # epoch_ms keeps timestamps as integers (DuckDB tz-aware -> Python needs pytz).
+                "SELECT symbol, interval, count(*), epoch_ms(min(event_ts)), "
+                "epoch_ms(max(event_ts)), bool_or(is_synthetic) "
+                "FROM bars GROUP BY 1, 2 ORDER BY 1, 2"
+            ).fetchall()
+        finally:
+            con.close()
+        return [
+            {
+                "symbol": s,
+                "interval": i,
+                "bars": n,
+                "first": datetime.fromtimestamp(first / 1000, UTC).isoformat(),
+                "last": datetime.fromtimestamp(last / 1000, UTC).isoformat(),
+                "synthetic": synthetic,
+            }
+            for s, i, n, first, last, synthetic in rows
+        ]
+
+    @app.get("/api/bars")
+    def bars(
+        symbol: str = Query(pattern=SYMBOL),
+        interval: str = Query(pattern=INTERVAL),
+        limit: int = Query(default=1000, ge=10, le=5000),
+    ) -> dict[str, Any]:
+        """The most recent `limit` bars, oldest first, as [epoch_ms, o, h, l, c, v] rows."""
+        manifest = lake.head(DatasetKind.BARS)
+        if manifest is None:
+            raise HTTPException(status_code=404, detail="no bars dataset yet")
+        con = connect(lake, [manifest], verify=False)
+        try:
+            rows = con.execute(
+                "SELECT epoch_ms(event_ts), open, high, low, close, volume, is_synthetic FROM ("
+                "  SELECT * FROM bars WHERE symbol = ? AND interval = ?"
+                "  ORDER BY event_ts DESC LIMIT ?) ORDER BY 1",
+                [symbol, interval, limit],
+            ).fetchall()
+        finally:
+            con.close()
+        if not rows:
+            raise HTTPException(status_code=404, detail="no bars for that symbol and interval")
+        return {
+            "symbol": symbol,
+            "interval": interval,
+            "dataset_version": manifest.version,
+            "synthetic": any(r[6] for r in rows),
+            "bars": [list(r[:6]) for r in rows],
+        }
 
     @app.get("/api/loops")
     def loops_list() -> list[dict[str, Any]]:

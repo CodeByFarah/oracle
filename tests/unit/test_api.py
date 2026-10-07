@@ -85,6 +85,40 @@ def test_artifacts_after_a_loop_cycle(lake: Lake) -> None:
     assert client.get("/api/journal", params={"q": "no-such-word-xyz"}).json() == []
     assert client.get("/api/strategies").json() == []
 
+    symbols = client.get("/api/symbols").json()
+    assert {s["symbol"] for s in symbols} == {"AAA", "BBB", "CCC", "DDD", "EEE", "FFF"}
+    assert all(s["synthetic"] for s in symbols)
+    first = symbols[0]
+    series = client.get(
+        "/api/bars", params={"symbol": first["symbol"], "interval": first["interval"], "limit": 50}
+    ).json()
+    assert series["dataset_version"] == bars["version"]
+    assert series["synthetic"] is True
+    rows = series["bars"]
+    assert len(rows) == 50
+    assert all(len(r) == 6 for r in rows)
+    times = [r[0] for r in rows]
+    assert times == sorted(times)  # oldest first
+    assert all(r[3] <= r[4] <= r[2] for r in rows)  # low <= close <= high
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"symbol": "spy;drop", "interval": "1m"},
+        {"symbol": "SPY", "interval": "1 minute"},
+        {"symbol": "SPY", "interval": "1m", "limit": 999999},
+    ],
+)
+def test_bars_parameters_are_validated(lake: Lake, params: dict[str, object]) -> None:
+    assert _client(lake).get("/api/bars", params=params).status_code == 422
+
+
+def test_bars_without_a_dataset(lake: Lake) -> None:
+    client = _client(lake)
+    assert client.get("/api/symbols").json() == []
+    assert client.get("/api/bars", params={"symbol": "SPY", "interval": "1m"}).status_code == 404
+
 
 def test_hypotheses_show_latest_state_with_adversarial_report(lake: Lake) -> None:
     research = lake.root / "research"
