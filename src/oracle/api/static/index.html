@@ -3,243 +3,461 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ORACLE Research</title>
+<title>ORACLE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'%3E%3Cg fill='none' stroke='%23c9a961' stroke-width='2.5'%3E%3Ccircle cx='23' cy='23' r='20'/%3E%3Cpath d='M5 23 Q23 9 41 23 Q23 37 5 23Z'/%3E%3Ccircle cx='23' cy='23' r='4.5'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dfe3e8;
-    --accent: #2f5d8a; --good: #2e7d4f; --bad: #b3261e; --warn: #9a6a00; --chip: #eef1f5;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #111418; --panel: #191d22; --text: #e3e7ec; --muted: #9aa4b1; --line: #2a3038;
-            --accent: #7fa8d6; --good: #6cc08f; --bad: #f08a80; --warn: #e0b45a; --chip: #232931; }
+    --void: #07080c; --deep: #0d0f16; --panel: rgba(18, 20, 30, .72); --line: rgba(201, 169, 97, .16);
+    --line-strong: rgba(201, 169, 97, .42); --gold: #c9a961; --gold-hi: #f1d79a; --ink: #e8e2d4;
+    --dim: #8a8577; --faint: #4d4a42; --cyan: #7fd1c7; --ember: #e2725b; --sage: #9bc49a;
+    --serif: "Cormorant", "Iowan Old Style", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --display: "Syne", "Cormorant", sans-serif;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between;
-           padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
-  header h1 { font-size: 16px; margin: 0; letter-spacing: .04em; }
-  header .meta { color: var(--muted); font-size: 12px; }
-  nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--line);
-        background: var(--panel); }
-  nav button { border: 0; background: none; color: var(--muted); padding: 6px 10px; border-radius: 6px;
-               font: inherit; cursor: pointer; }
-  nav button[aria-selected="true"] { background: var(--chip); color: var(--text); font-weight: 600; }
-  main { padding: 16px 20px 40px; max-width: 1200px; margin: 0 auto; }
+  html { background: var(--void); }
+  body { margin: 0; min-height: 100vh; color: var(--ink); background:
+           radial-gradient(1200px 700px at 78% -10%, rgba(201,169,97,.10), transparent 60%),
+           radial-gradient(900px 600px at -10% 110%, rgba(127,209,199,.06), transparent 60%), var(--void);
+         font: 15px/1.6 var(--serif); overflow-x: hidden; }
+  #sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .shell { position: relative; z-index: 2; max-width: 1280px; margin: 0 auto; padding: 0 16px 80px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 28px 0 18px; border-bottom: 1px solid var(--line); }
+  .sigil { width: 46px; height: 46px; flex: none; }
+  .sigil circle, .sigil path { fill: none; stroke: var(--gold); stroke-width: 1; }
+  .sigil .spin { transform-origin: 50% 50%; animation: spin 40s linear infinite; }
+  .wordmark { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: .5em; color: var(--gold-hi); }
+  .tagline { font-style: italic; color: var(--dim); font-size: 15px; margin-top: -2px; }
+  .status { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .pill { font: 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 7px 10px;
+          border: 1px solid var(--line); border-radius: 999px; color: var(--dim); white-space: nowrap; }
+  .pill i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; background: var(--faint); }
+  .pill.ok i { background: var(--sage); box-shadow: 0 0 8px var(--sage); }
+  .pill.alert i { background: var(--ember); box-shadow: 0 0 8px var(--ember); }
+
+  nav { display: flex; gap: 2px; overflow-x: auto; padding: 14px 0; scrollbar-width: none; }
+  nav button { flex: none; background: none; border: 0; cursor: pointer; color: var(--dim); padding: 8px 14px;
+               font: 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; position: relative; transition: color .3s; }
+  nav button b { font: italic 500 15px var(--serif); letter-spacing: 0; color: var(--faint); margin-right: 8px; text-transform: none; }
+  nav button:hover { color: var(--ink); }
+  nav button[aria-selected="true"] { color: var(--gold-hi); }
+  nav button[aria-selected="true"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+
   section { display: none; } section.active { display: block; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
-          margin-bottom: 14px; overflow-x: auto; }
-  .card h2 { font-size: 13px; margin: 10px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-  .card h3 { font-size: 15px; margin: 4px 0 8px; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
-  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-  pre { white-space: pre-wrap; margin: 0; font: 13px/1.5 ui-monospace, Consolas, monospace; }
-  .chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
-  .good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); } .muted { color: var(--muted); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
-  .stat { background: var(--chip); border-radius: 6px; padding: 8px 10px; }
-  .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
-  input[type=search] { width: 100%; max-width: 360px; padding: 6px 10px; border: 1px solid var(--line);
-                       border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
-  .notice { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--chip); border-radius: 4px; margin: 0; }
+  section.active > * { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+  section.active > *:nth-child(2) { animation-delay: .08s; } section.active > *:nth-child(3) { animation-delay: .16s; }
+  section.active > *:nth-child(4) { animation-delay: .24s; } section.active > *:nth-child(n+5) { animation-delay: .32s; }
+
+  .kicker { font: 11px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--gold); margin: 34px 0 12px; display: flex; align-items: center; gap: 12px; }
+  .kicker::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-strong), transparent); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 22px 24px; backdrop-filter: blur(6px);
+           position: relative; overflow-x: auto; }
+  .panel::before { content: ""; position: absolute; top: -1px; left: -1px; width: 14px; height: 14px; border-top: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+  .panel + .panel { margin-top: 16px; }
+
+  /* The reading */
+  .hero { display: grid; grid-template-columns: minmax(280px, 460px) 1fr; gap: 40px; align-items: center; padding-top: 20px; }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+  .astrolabe { width: 100%; aspect-ratio: 1; }
+  .astrolabe .track { fill: none; stroke: var(--line); stroke-width: 1; }
+  .astrolabe .arc { fill: none; stroke-linecap: round; transition: stroke-dashoffset 2.2s cubic-bezier(.2,.8,.2,1); }
+  .astrolabe .tick { stroke: var(--faint); stroke-width: 1; }
+  .astrolabe .label { font: 9px var(--mono); letter-spacing: .2em; fill: var(--dim); text-transform: uppercase;
+                      paint-order: stroke; stroke: var(--void); stroke-width: 6px; stroke-linejoin: round; }
+  .astrolabe .core { font: 600 44px var(--serif); fill: var(--gold-hi); }
+  .astrolabe .core-sub { font: 10px var(--mono); letter-spacing: .3em; fill: var(--dim); }
+  .astrolabe .rotor { transform-origin: 200px 200px; animation: spin 90s linear infinite; }
+  .astrolabe .rotor-r { transform-origin: 200px 200px; animation: spin 140s linear infinite reverse; }
+  .reading h2 { font: 400 clamp(30px, 4.4vw, 54px)/1.08 var(--serif); margin: 0 0 18px; letter-spacing: -.01em; }
+  .reading h2 em { color: var(--gold-hi); font-style: italic; }
+  .reading p { color: var(--dim); font-size: 18px; max-width: 54ch; margin: 0 0 12px; }
+  .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 26px; }
+  .gauge { border-left: 1px solid var(--line-strong); padding: 2px 0 2px 14px; }
+  .gauge .k { font: 10px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+  .gauge .v { font: 500 30px/1.15 var(--serif); }
+  .gauge .s { font: italic 14px var(--serif); color: var(--faint); }
+  .caveat { font: italic 14px var(--serif); color: var(--faint); margin-top: 22px; }
+  .caveat::before { content: "✶ "; color: var(--gold); font-style: normal; }
+
+  .constellation { width: 100%; height: auto; display: block; }
+  .constellation .node circle { fill: var(--void); stroke: var(--gold); stroke-width: 1.2; }
+  .constellation .node text { font: 11px var(--mono); letter-spacing: .14em; fill: var(--ink); }
+  .constellation .edge { fill: none; stroke-linecap: round; animation: draw 2.4s ease both; }
+  .constellation .glow { fill: var(--gold-hi); opacity: .9; animation: twinkle 3s ease-in-out infinite; }
+
+  pre.transcript { white-space: pre-wrap; margin: 0; font: 12.5px/1.7 var(--mono); color: var(--dim); }
+  details summary { cursor: pointer; font: 11px var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--gold); list-style: none; }
+  details summary::before { content: "＋ "; } details[open] summary::before { content: "－ "; }
+  details[open] summary { margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font: 12.5px/1.5 var(--mono); }
+  th { text-align: left; font-weight: 400; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
+       padding: 0 12px 10px 0; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+  td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr { transition: background .2s; } tbody tr:hover { background: rgba(201,169,97,.05); }
+
+  .good { color: var(--sage); } .bad { color: var(--ember); } .warn { color: var(--gold-hi); } .muted { color: var(--dim); }
+  .void-state { text-align: center; padding: 56px 20px; }
+  .void-state .glyph { font: 400 64px/1 var(--serif); color: var(--gold); opacity: .8; animation: breathe 5s ease-in-out infinite; }
+  .void-state h3 { font: italic 400 28px var(--serif); margin: 14px 0 8px; }
+  .void-state p { color: var(--dim); max-width: 56ch; margin: 0 auto; font-size: 17px; }
+
+  .omen { display: grid; grid-template-columns: 90px 1fr; gap: 20px; }
+  @media (max-width: 640px) { .omen { grid-template-columns: 1fr; } }
+  .seal { width: 90px; height: 90px; border: 1px solid var(--line-strong); border-radius: 50%; display: grid; place-items: center;
+          font: 500 26px var(--serif); color: var(--gold-hi); position: relative; }
+  .seal small { position: absolute; bottom: -22px; font: 9px var(--mono); letter-spacing: .2em; color: var(--dim); text-transform: uppercase; white-space: nowrap; }
+  .omen h3 { font: 500 24px/1.25 var(--serif); margin: 0 0 6px; }
+  .omen h4 { font: 10px var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--gold); margin: 22px 0 8px; font-weight: 400; }
+  .verdict { font: 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; padding: 5px 9px; border: 1px solid currentColor; border-radius: 999px; }
+  ul.runes { list-style: none; padding: 0; margin: 0; } ul.runes li { padding: 4px 0 4px 20px; position: relative; color: var(--dim); }
+  ul.runes li::before { content: "◇"; position: absolute; left: 0; color: var(--gold); font-size: 11px; top: 7px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .stats > div { background: var(--deep); padding: 18px 20px; }
+  .stats .k { font: 10px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+  .stats .v { font: 500 28px/1.2 var(--serif); margin-top: 4px; }
+  input[type=search] { width: 100%; max-width: 440px; background: transparent; border: 0; border-bottom: 1px solid var(--line-strong);
+    color: var(--ink); font: italic 20px var(--serif); padding: 8px 0; outline: none; }
+  input[type=search]:focus { border-color: var(--gold); }
+  input[type=search]::placeholder { color: var(--faint); }
+  .entry { border-left: 1px solid var(--line-strong); padding: 4px 0 4px 18px; margin: 22px 0; }
+  .entry h3 { font: 500 20px/1.3 var(--serif); margin: 0 0 6px; }
+  .entry p { margin: 0 0 4px; color: var(--dim); }
+  .entry .meta { font: 11px var(--mono); color: var(--faint); }
+  footer { margin-top: 70px; padding-top: 18px; border-top: 1px solid var(--line); font: italic 14px var(--serif); color: var(--faint); text-align: center; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes draw { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
+  @keyframes twinkle { 50% { opacity: .35; } }
+  @keyframes breathe { 50% { opacity: .35; transform: scale(.96); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>ORACLE · research platform</h1>
-  <span class="meta" id="meta">loading…</span>
-</header>
-<nav role="tablist" id="tabs"></nav>
-<main>
-  <section id="market"></section>
-  <section id="discoveries"></section>
-  <section id="lab"></section>
-  <section id="strategies"></section>
-  <section id="portfolio"></section>
-  <section id="risk"></section>
-  <section id="data"></section>
-  <section id="experiments"></section>
-</main>
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="shell">
+  <header>
+    <svg class="sigil" viewBox="0 0 46 46" aria-hidden="true">
+      <circle cx="23" cy="23" r="21"/><g class="spin"><circle cx="23" cy="23" r="15" stroke-dasharray="2 4"/></g>
+      <path d="M5 23 Q23 9 41 23 Q23 37 5 23Z"/><circle cx="23" cy="23" r="4.5"/>
+    </svg>
+    <div>
+      <div class="wordmark">ORACLE</div>
+      <div class="tagline">It reads the market and doubts everything it sees.</div>
+    </div>
+    <div class="status" id="status"></div>
+  </header>
+  <nav role="tablist" id="tabs" aria-label="Sections"></nav>
+  <main>
+    <section id="market"></section>
+    <section id="discoveries"></section>
+    <section id="lab"></section>
+    <section id="strategies"></section>
+    <section id="portfolio"></section>
+    <section id="risk"></section>
+    <section id="data"></section>
+    <section id="experiments"></section>
+  </main>
+  <footer>Estimates, not prophecy. Every figure here is computed from stored data and can be traced to its source.
+    Historical patterns do not promise future returns. No real money is traded.</footer>
+</div>
 <script>
 "use strict";
-// Everything is rendered with text nodes, never parsed as HTML: artifact contents are data.
-const VIEWS = [["market","Market"],["discoveries","Discoveries"],["lab","Research lab"],["strategies","Strategies"],
-               ["portfolio","Portfolio"],["risk","Risk"],["data","Data"],["experiments","Experiments"]];
+// Every value is rendered as a text node, never parsed as markup: artifact contents are data.
+const VIEWS = [["market","The Sky","I"],["discoveries","Omens","II"],["lab","Laboratory","III"],["strategies","Strategies","IV"],
+               ["portfolio","Portfolio","V"],["risk","Wards","VI"],["data","Sources","VII"],["experiments","Ledger","VIII"]];
+const SVG = "http://www.w3.org/2000/svg";
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-function el(tag, attrs = {}, ...children) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") node.className = v; else node.setAttribute(k, v);
+function build(ns, tag, attrs, children) {
+  const node = ns ? document.createElementNS(ns, tag) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined) continue;
+    if (k === "class" && !ns) node.className = v; else node.setAttribute(k, v);
   }
   for (const c of children) {
-    if (c === null || c === undefined) continue;
+    if (c === null || c === undefined || c === false) continue;
     node.append(c instanceof Node ? c : document.createTextNode(String(c)));
   }
   return node;
 }
+const el = (tag, attrs = {}, ...kids) => build(null, tag, attrs, kids);
+const sv = (tag, attrs = {}, ...kids) => build(SVG, tag, attrs, kids);
 const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(Number(x))) ? "–" : Number(x).toFixed(d);
 const sci = (x) => (x === null || x === undefined) ? "–" : Number(x).toExponential(2);
+const pct = (x) => (x === null || x === undefined) ? "–" : Math.round(100 * x) + "%";
 const short = (s, n = 23) => (s ? String(s).slice(0, n) : "–");
+const cap = (s) => String(s || "").replace(/_/g, " ");
+
 async function api(path) {
   const r = await fetch(path);
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
 }
-function card(title, ...body) { return el("div", { class: "card" }, title ? el("h2", {}, title) : null, ...body); }
+function fill(id, ...nodes) { document.getElementById(id).replaceChildren(...nodes.filter(Boolean)); }
+const kicker = (t) => el("div", { class: "kicker" }, t);
+const panel = (...kids) => el("div", { class: "panel" }, ...kids);
 function table(headers, rows, numeric = []) {
-  const head = el("tr", {}, ...headers.map(h => el("th", {}, h)));
-  const body = rows.map(r => el("tr", {}, ...r.map((v, i) => el("td", numeric.includes(i) ? { class: "num" } : {}, v))));
-  return el("table", {}, el("thead", {}, head), el("tbody", {}, ...body));
+  return el("table", {}, el("thead", {}, el("tr", {}, ...headers.map(h => el("th", {}, h)))),
+    el("tbody", {}, ...rows.map(r => el("tr", {}, ...r.map((v, i) => el("td", numeric.includes(i) ? { class: "num" } : {}, v))))));
 }
-function empty(text) { return el("p", { class: "muted" }, text); }
-function fill(id, ...nodes) { document.getElementById(id).replaceChildren(...nodes); }
+function voidState(glyph, title, text) {
+  return panel(el("div", { class: "void-state" }, el("div", { class: "glyph" }, glyph), el("h3", {}, title), el("p", {}, text)));
+}
 async function guarded(id, fn) {
-  try { await fn(); } catch (e) { fill(id, card(null, el("p", { class: "muted" }, String(e.message)))); }
+  try { await fn(); } catch (e) {
+    fill(id, voidState("☾", "The sky is not yet visible", String(e.message) + ". Ingest data and run a research cycle: " +
+      "oracle ingest synthetic …, then oracle loop run-once."));
+  }
+}
+
+/* ---------- The Sky: astrolabe drawn only from the real world snapshot ---------- */
+function ring(r, frac, color, width, delay) {
+  const c = 2 * Math.PI * r;
+  const arc = sv("circle", { class: "arc", cx: 200, cy: 200, r, stroke: color, "stroke-width": width,
+    "stroke-dasharray": c.toFixed(1), "stroke-dashoffset": c.toFixed(1), transform: "rotate(-90 200 200)" });
+  const target = frac === null || frac === undefined ? c : c * (1 - Math.max(0, Math.min(1, frac)));
+  setTimeout(() => arc.setAttribute("stroke-dashoffset", target.toFixed(1)), REDUCED ? 0 : 120 + delay);
+  return [sv("circle", { class: "track", cx: 200, cy: 200, r }), arc];
+}
+function astrolabe(s) {
+  const regime = s.market_regime;
+  const ticks = [];
+  for (let i = 0; i < 72; i++) {
+    const a = (i / 72) * 2 * Math.PI, r1 = 188, r2 = i % 6 === 0 ? 176 : 182;
+    ticks.push(sv("line", { class: "tick", x1: 200 + r1 * Math.cos(a), y1: 200 + r1 * Math.sin(a), x2: 200 + r2 * Math.cos(a), y2: 200 + r2 * Math.sin(a) }));
+  }
+  const labelAt = (r, text) => sv("text", { class: "label", x: 200, y: 200 - r - 6, "text-anchor": "middle" }, text);
+  return sv("svg", { class: "astrolabe", viewBox: "0 0 400 400", role: "img",
+      "aria-label": "Market instrument: regime probability, volatility and liquidity percentiles, model confidence" },
+    sv("defs", {}, sv("radialGradient", { id: "halo" }, sv("stop", { offset: "0", "stop-color": "#c9a961", "stop-opacity": ".22" }),
+      sv("stop", { offset: "1", "stop-color": "#c9a961", "stop-opacity": "0" }))),
+    sv("circle", { cx: 200, cy: 200, r: 120, fill: "url(#halo)" }),
+    sv("g", { class: "rotor" }, ...ticks),
+    sv("g", { class: "rotor-r" }, sv("circle", { cx: 200, cy: 200, r: 168, fill: "none", stroke: "rgba(201,169,97,.25)", "stroke-dasharray": "1 7" })),
+    ...ring(150, regime ? regime.probability : null, "#c9a961", 3, 0), labelAt(150, "regime"),
+    ...ring(126, s.volatility_percentile, "#e2725b", 3, 250), labelAt(126, "volatility"),
+    ...ring(102, s.liquidity_percentile, "#7fd1c7", 3, 500), labelAt(102, "liquidity"),
+    ...ring(78, s.confidence, "#f1d79a", 1.5, 750), labelAt(78, "confidence"),
+    sv("text", { class: "core", x: 200, y: 212, "text-anchor": "middle" }, regime ? pct(regime.probability) : "?"),
+    sv("text", { class: "core-sub", x: 200, y: 236, "text-anchor": "middle" }, regime ? "REGIME " + (regime.regime_id + 1) + " OF " + regime.n_regimes : "NO REGIME"));
+}
+function constellation(edges) {
+  const names = [...new Set(edges.flatMap(e => [e.source, e.target]))].sort();
+  const W = 900, H = 330, cx = W / 2, cy = H / 2 + 6, rx = 360, ry = 125;
+  const pos = Object.fromEntries(names.map((n, i) => {
+    const a = (i / names.length) * 2 * Math.PI - Math.PI / 2;
+    return [n, [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]];
+  }));
+  const lines = edges.map((e, i) => {
+    const [x1, y1] = pos[e.source], [x2, y2] = pos[e.target];
+    const path = sv("path", { class: "edge", d: `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`, stroke: e.strength >= 0 ? "#c9a961" : "#7fd1c7",
+      "stroke-width": (0.6 + 2.4 * Math.min(1, Math.abs(e.strength))).toFixed(2), "stroke-opacity": (0.25 + 0.6 * (e.stability ?? 0.5)).toFixed(2),
+      "stroke-dasharray": 600, style: `animation-delay:${i * 120}ms` });
+    path.append(sv("title", {}, `${e.source} ${e.direction === "undirected" ? "↔" : "→"} ${e.target} · ${cap(e.kind)} · r=${fmt(e.strength)} · p=${sci(e.p_value)}`));
+    return path;
+  });
+  const nodes = names.map((n, i) => {
+    const [x, y] = pos[n];
+    return sv("g", { class: "node" }, sv("circle", { cx: x, cy: y, r: 9 }),
+      sv("circle", { class: "glow", cx: x, cy: y, r: 2.4, style: `animation-delay:${i * 400}ms` }),
+      sv("text", { x, y: y + (y > cy ? 26 : -16), "text-anchor": "middle" }, n));
+  });
+  return sv("svg", { class: "constellation", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Cross-asset links" }, ...lines, ...nodes);
 }
 
 async function market() {
   const w = await api("/api/world");
-  const s = w.snapshot;
-  const regime = s.market_regime ? s.market_regime.label : "unknown";
-  const stats = el("div", { class: "grid" },
-    el("div", { class: "stat" }, "Volatility", el("b", {}, s.volatility_state)),
-    el("div", { class: "stat" }, "Liquidity proxy", el("b", {}, s.liquidity_state)),
-    el("div", { class: "stat" }, "Regime", el("b", {}, regime)),
-    el("div", { class: "stat" }, "Anomalies", el("b", {}, (s.anomalies || []).length)),
-    el("div", { class: "stat" }, "Confidence", el("b", {}, fmt(s.confidence))));
-  const vars = Object.entries((s.state && s.state.variables) || {})
-    .map(([k, v]) => [k, fmt(v, 5), ((s.state.epistemic_status || {})[k]) || "–"]);
-  const edges = (s.cross_asset_signals || []).map(e => [e.kind,
-    e.source + (e.direction === "undirected" ? " ↔ " : " → ") + e.target, fmt(e.strength), sci(e.p_value), fmt(e.stability)]);
+  const s = w.snapshot, regime = s.market_regime;
+  const edges = s.cross_asset_signals || [];
+  const gauge = (k, v, sub, cls = "") => el("div", { class: "gauge" }, el("div", { class: "k" }, k), el("div", { class: "v " + cls }, v), el("div", { class: "s" }, sub));
+  const reading = el("div", { class: "reading" },
+    el("h2", {}, "The market is in its ", el("em", {}, regime ? cap(regime.label) : "unread"), " regime. Volatility runs ",
+      el("em", {}, cap(s.volatility_state)), "."),
+    el("p", {}, regime
+      ? `The regime model places ${pct(regime.probability)} of its weight on this state and expects it to last about ${fmt(regime.expected_duration_bars, 0)} more bars.`
+      : "No regime model has been fitted to this data yet."),
+    el("p", {}, `Liquidity reads as ${cap(s.liquidity_state)}. ${(s.anomalies || []).length} anomalies are flagged; ${edges.length} cross-asset links passed the multiple-testing threshold.`),
+    el("div", { class: "legend" },
+      gauge("Regime weight", regime ? pct(regime.probability) : "–", regime ? `~${fmt(regime.expected_duration_bars, 0)} bars expected` : "unfitted", "warn"),
+      gauge("Volatility", pct(s.volatility_percentile), "percentile of its own history", "bad"),
+      gauge("Liquidity", pct(s.liquidity_percentile), "percentile of its own history"),
+      gauge("Confidence", pct(s.confidence), "how much to trust this reading")),
+    el("div", { class: "caveat" }, `Reading as of ${new Date(s.as_of).toLocaleString()}. These are model estimates from past data; they describe the present and forecast nothing about prices.`));
+  const vars = Object.entries((s.state && s.state.variables) || {}).map(([k, v]) => [cap(k), fmt(v, 5), cap(((s.state.epistemic_status || {})[k]) || "–")]);
+  const anomalies = (s.anomalies || []).map(a => [cap(a.variable), new Date(a.timestamp).toLocaleString(), fmt(a.robust_z, 2), pct(a.rarity)]);
   fill("market",
-    card("What the market looks like", stats),
-    card("Summary (rendered from structured data)", el("pre", {}, w.text)),
-    card("Market state variables", vars.length ? table(["variable", "value", "epistemic status"], vars, [1]) : empty("No state variables.")),
-    card("Cross-asset signals (statistical association, not causation)",
-      edges.length ? table(["kind", "pair", "r", "p", "stability"], edges, [2, 3, 4]) : empty("No edge passed the multiple-testing threshold.")));
+    el("div", { class: "hero" }, astrolabe(s), reading),
+    kicker("Constellation · links between assets"),
+    panel(edges.length ? constellation(edges)
+      : el("div", { class: "void-state" }, el("div", { class: "glyph" }, "✧"), el("h3", {}, "No stars are aligned"),
+          el("p", {}, "No link between assets survived the significance threshold. That is a finding, not a failure.")),
+      edges.length ? el("p", { class: "caveat" }, "Line weight = strength of association; brightness = stability over time. Association is not causation.") : null),
+    anomalies.length ? kicker("Anomalies") : null,
+    anomalies.length ? panel(table(["variable", "when", "robust z", "rarity"], anomalies, [2, 3])) : null,
+    kicker("Instrument readings"),
+    panel(table(["variable", "value", "epistemic status"], vars, [1])),
+    panel(el("details", {}, el("summary", {}, "Full transcript"), el("pre", { class: "transcript" }, w.text))));
 }
 
-function statusClass(status) {
-  if (/reject|fail|invalid/.test(status)) return "bad";
-  if (/surviv|validat/.test(status)) return "good";
-  return "";
-}
-
-function hypothesisCard(h) {
-  const adv = h.adversarial;
+/* ---------- Omens: hypotheses ---------- */
+function verdictClass(status) { return /reject|fail|invalid/.test(status) ? "bad" : /surviv|validat|paper/.test(status) ? "good" : "warn"; }
+function omen(h) {
+  const adv = h.adversarial, pred = h.prediction || {};
   const obs = (h.observations || []).map(o => [o.split, o.n_events, fmt(o.effect_bps), fmt(o.t_stat), sci(o.p_value),
     o.p_adjusted === null || o.p_adjusted === undefined ? "–" : fmt(o.p_adjusted, 4), fmt(o.cost_adjusted_effect_bps)]);
-  const checks = adv ? (adv.checks || []).map(c => [c.name,
+  const checks = adv ? (adv.checks || []).map(c => [cap(c.name),
     el("span", { class: c.status === "passed" ? "good" : c.status === "failed" ? "bad" : "muted" }, c.status), c.detail || ""]) : [];
-  const pred = h.prediction || {};
-  return card(null,
-    el("h3", {}, h.hypothesis_id + " ", el("span", { class: "chip " + statusClass(String(h.status)) }, h.status)),
-    el("p", {}, h.statement),
-    el("p", { class: "muted" }, "Discovery score " + (adv && adv.score ? fmt(adv.score.score) : "not yet evaluated") +
-      " · predicted " + (pred.direction || "–") + " " + fmt(pred.expected_effect_bps) + " bps over " + (pred.horizon_bars ?? "–") + " bars"),
-    el("h2", {}, "Observed evidence (historical, in-sample and out-of-sample)"),
-    obs.length ? table(["split", "events", "effect bps", "t", "p", "BH p", "after costs bps"], obs, [1, 2, 3, 4, 5, 6]) : empty("No observations."),
-    el("h2", {}, "Candidate mechanisms (speculation, not tested)"),
-    el("ul", {}, ...(h.mechanisms || []).map(m => el("li", {}, m.name + ": " + m.explanation))),
-    el("h2", {}, "Adversarial checks and failure cases"),
-    adv ? table(["check", "result", "detail"], checks) : empty("Not yet run through the adversarial lab."),
-    el("h2", {}, "Invalidated if"),
-    el("ul", {}, ...(h.invalidation || []).map(i => el("li", {}, i.rule))),
-    el("p", { class: "muted" }, "Protocol " + h.protocol_hash + " · data " + short(h.dataset_version) + " · features " + short(h.feature_set_id)));
+  const score = adv && adv.score ? adv.score.score : null;
+  return panel(el("div", { class: "omen" },
+    el("div", { class: "seal" }, score === null ? "?" : fmt(score, 2), el("small", {}, "discovery score")),
+    el("div", {},
+      el("div", { class: "kicker", style: "margin:0 0 10px" }, h.hypothesis_id),
+      el("h3", {}, h.statement),
+      el("span", { class: "verdict " + verdictClass(String(h.status)) }, cap(h.status)),
+      el("h4", {}, "If true, it predicts"),
+      el("p", {}, `${pred.direction === "negative" ? "A fall" : "A rise"} of about ${fmt(pred.expected_effect_bps)} basis points over ${pred.horizon_bars ?? "–"} bars, under the conditions it was found in.`),
+      el("h4", {}, "Evidence"),
+      obs.length ? table(["split", "events", "effect bps", "t", "p", "adj. p", "after costs"], obs, [1, 2, 3, 4, 5, 6]) : el("p", { class: "muted" }, "None recorded."),
+      el("h4", {}, "Possible mechanisms · untested speculation"),
+      el("ul", { class: "runes" }, ...(h.mechanisms || []).map(m => el("li", {}, cap(m.name) + ": " + m.explanation))),
+      el("h4", {}, "Trials in the adversarial lab"),
+      adv ? table(["trial", "result", "detail"], checks) : el("p", { class: "muted" }, "Not yet put on trial."),
+      el("h4", {}, "It is dead if"),
+      el("ul", { class: "runes" }, ...(h.invalidation || []).map(i => el("li", {}, i.rule))),
+      el("p", { class: "caveat" }, `Protocol ${h.protocol_hash} · data ${short(h.dataset_version)} · features ${short(h.feature_set_id)}`))));
 }
-
 async function discoveries() {
   const items = await api("/api/hypotheses");
+  const alive = items.filter(h => verdictClass(String(h.status)) !== "bad").length;
   fill("discoveries",
-    card(null, el("p", { class: "notice" }, "Every hypothesis is listed, including rejected ones. Historical statistics are not a promise of future returns.")),
-    ...(items.length ? items.map(hypothesisCard)
-      : [card("Discoveries", empty("No hypothesis has survived discovery-stage FDR control. On synthetic or efficient data this is the expected outcome."))]));
+    kicker("Omens · patterns that survived the first test"),
+    el("div", { class: "stats" },
+      el("div", {}, el("div", { class: "k" }, "Hypotheses"), el("div", { class: "v" }, items.length)),
+      el("div", {}, el("div", { class: "k" }, "Still standing"), el("div", { class: "v good" }, alive)),
+      el("div", {}, el("div", { class: "k" }, "Struck down"), el("div", { class: "v bad" }, items.length - alive))),
+    ...(items.length ? items.map(omen) : [voidState("◯", "The oracle sees nothing — yet",
+      "No pattern survived the first statistical test. On synthetic data this is exactly the right answer: there is nothing there to find. Real data may tell a different story.")]));
 }
 
+/* ---------- Laboratory ---------- */
 async function lab() {
   const [loops, journal] = await Promise.all([api("/api/loops"), api("/api/journal")]);
-  const loopRows = loops.map(l => [l.name, l.experiments, l.tests_run, l.validated_hypotheses, l.adversarial_survivors, (l.notes || []).join(" · ")]);
-  const search = el("input", { type: "search", placeholder: "Search the research journal…", "aria-label": "Search journal" });
+  const totals = loops.reduce((t, l) => ({ c: t.c + 1, t: t.t + l.tests_run, v: t.v + l.validated_hypotheses }), { c: 0, t: 0, v: 0 });
+  const search = el("input", { type: "search", name: "q", placeholder: "Search the journal…", "aria-label": "Search journal" });
   const list = el("div");
-  const render = (entries) => list.replaceChildren(...(entries.length ? entries.map(e => card(null,
-    el("h3", {}, e.question || "–"), el("p", {}, e.result || ""), el("p", { class: "muted" }, e.interpretation || ""),
-    el("p", { class: "muted" }, "Method: " + (e.method || "–")), el("p", { class: "muted" }, "Next: " + (e.next_experiment || "–"))))
-    : [empty("No journal entries.")]));
+  const render = (entries) => list.replaceChildren(...(entries.length ? entries.map(e => el("div", { class: "entry" },
+    el("h3", {}, e.question || "–"), el("p", {}, e.result || ""), el("p", {}, e.interpretation || ""),
+    el("div", { class: "meta" }, "method · " + (e.method || "–")), el("div", { class: "meta" }, "next · " + (e.next_experiment || "–"))))
+    : [el("p", { class: "muted" }, "Nothing written here yet.")]));
   render(journal);
   let timer = null;
-  search.addEventListener("input", () => {
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      try { render(await api("/api/journal?q=" + encodeURIComponent(search.value))); } catch (_) { /* keep last view */ }
-    }, 200);
-  });
+  search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(async () => {
+    try { render(await api("/api/journal?q=" + encodeURIComponent(search.value))); } catch (_) { /* keep last view */ } }, 220); });
   fill("lab",
-    card("Research loop cycles", loopRows.length
-      ? table(["cycle", "experiments", "tests", "validated", "survived lab", "notes"], loopRows, [1, 2, 3, 4])
-      : empty("No cycles yet: run `oracle loop run-once`.")),
-    card("Research journal", search), list);
+    kicker("Research cycles"),
+    el("div", { class: "stats" },
+      el("div", {}, el("div", { class: "k" }, "Cycles run"), el("div", { class: "v" }, totals.c)),
+      el("div", {}, el("div", { class: "k" }, "Statistical tests"), el("div", { class: "v" }, totals.t.toLocaleString())),
+      el("div", {}, el("div", { class: "k" }, "Validated"), el("div", { class: "v warn" }, totals.v))),
+    panel(loops.length ? table(["cycle", "experiments", "tests", "validated", "survived lab", "notes"],
+      loops.map(l => [l.name, l.experiments, l.tests_run, l.validated_hypotheses, l.adversarial_survivors, (l.notes || []).join(" · ")]), [1, 2, 3, 4])
+      : el("p", { class: "muted" }, "No cycle has run yet.")),
+    kicker("The journal · every experiment, including failures"), search, list);
 }
 
+/* ---------- Strategies, portfolio, wards, sources, ledger ---------- */
 async function strategies() {
   const items = await api("/api/strategies");
-  const rows = items.map(s => [s.strategy_id, s.hypothesis_id, s.stage, (s.lifecycle || {}).state || "–", s.paper_fills, s.paper_rejections,
-    s.feedback && s.feedback.overall ? fmt(s.feedback.overall.mean_realized_bps) : "–", ((s.lifecycle || {}).reasons || []).join("; ")]);
-  fill("strategies", card("Strategies (promotion stops at paper trading)", rows.length
-    ? table(["strategy", "hypothesis", "stage", "lifecycle", "fills", "rejected", "realized bps", "reasons"], rows, [4, 5, 6])
-    : empty("No strategy exists: no hypothesis has survived the adversarial lab.")));
+  fill("strategies", kicker("Strategies · promotion stops at paper trading"),
+    items.length ? panel(table(["strategy", "hypothesis", "stage", "lifecycle", "fills", "rejected", "realized bps", "reasons"],
+      items.map(s => [s.strategy_id, s.hypothesis_id, cap(s.stage), cap((s.lifecycle || {}).state), s.paper_fills, s.paper_rejections,
+        s.feedback && s.feedback.overall ? fmt(s.feedback.overall.mean_realized_bps) : "–", ((s.lifecycle || {}).reasons || []).join("; ")]), [4, 5, 6]))
+    : voidState("△", "No strategy has been born", "A strategy exists only after a hypothesis survives every trial in the adversarial lab."));
 }
-
 async function portfolio() {
   const items = await api("/api/strategies");
   const rows = items.flatMap(s => ((s.feedback || {}).diagnosis || []).map(d => [s.strategy_id, d]));
-  fill("portfolio",
-    card(null, el("p", { class: "notice" }, "All positions are simulated paper positions. No real money is traded and no real broker is connected.")),
-    card("Paper trading feedback", rows.length ? table(["strategy", "diagnosis"], rows) : empty("No paper trading has run yet.")));
+  fill("portfolio", kicker("Portfolio · simulated with paper money only"),
+    rows.length ? panel(table(["strategy", "diagnosis"], rows))
+    : voidState("◇", "The book is empty", "No paper trades have been placed. No real money is ever traded and no real broker is connected."));
 }
-
 async function risk() {
   const [r, h] = await Promise.all([api("/api/risk"), api("/api/health")]);
   const limits = Object.entries(r.limits).filter(([, v]) => typeof v !== "object" || v === null)
-    .map(([k, v]) => [k, typeof v === "number" ? fmt(v, 3) : String(v)]);
-  fill("risk",
-    card("Safety state", el("div", { class: "grid" },
-      el("div", { class: "stat" }, "Live trading", el("b", { class: r.live_trading_enabled ? "bad" : "good" }, r.live_trading_enabled ? "ENABLED" : "disabled")),
-      el("div", { class: "stat" }, "Kill switch", el("b", { class: r.kill_switch_engaged ? "warn" : "" }, r.kill_switch_engaged ? "engaged" : "off")),
-      el("div", { class: "stat" }, "Live broker adapter", el("b", {}, "none")),
-      el("div", { class: "stat" }, "Environment", el("b", {}, h.environment)))),
-    card("Risk limits (the risk engine can veto any order)", table(["limit", "value"], limits, [1])));
+    .map(([k, v]) => [cap(k), typeof v === "number" ? fmt(v, 3) : String(v)]);
+  fill("risk", kicker("Wards · what stands between ideas and money"),
+    el("div", { class: "stats" },
+      el("div", {}, el("div", { class: "k" }, "Live trading"), el("div", { class: "v " + (r.live_trading_enabled ? "bad" : "good") }, r.live_trading_enabled ? "Enabled" : "Sealed")),
+      el("div", {}, el("div", { class: "k" }, "Kill switch"), el("div", { class: "v " + (r.kill_switch_engaged ? "bad" : "") }, r.kill_switch_engaged ? "Engaged" : "Off")),
+      el("div", {}, el("div", { class: "k" }, "Real broker"), el("div", { class: "v good" }, "None")),
+      el("div", {}, el("div", { class: "k" }, "Environment"), el("div", { class: "v" }, h.environment))),
+    kicker("Risk limits · any order breaking these is vetoed"), panel(table(["limit", "value"], limits, [1])));
 }
-
 async function data() {
   const [items, h] = await Promise.all([api("/api/data?quality=true"), api("/api/health")]);
   const rows = items.map(d => {
     if (!d.present) return [d.dataset, "–", "–", "–", el("span", { class: "muted" }, "not ingested"), "–"];
     const errors = d.quality ? (d.quality.issues || []).filter(i => i.severity === "error").length : 0;
-    return [d.dataset, short(d.version), d.rows, d.partitions,
+    return [d.dataset, short(d.version), Number(d.rows).toLocaleString(), d.partitions,
       d.integrity_problems.length ? el("span", { class: "bad" }, d.integrity_problems.length + " problems") : el("span", { class: "good" }, "verified"),
       d.quality ? el("span", { class: errors ? "bad" : "good" }, errors ? errors + " errors" : "passed") : "–"];
   });
   const unchecked = items.filter(d => d.quality && d.quality.unchecked)
-    .flatMap(d => Object.entries(d.quality.unchecked).map(([k, v]) => [d.dataset, k, String(v)]));
-  const providers = h.providers.map(p => [p.name,
-    p.enabled ? el("span", { class: "good" }, "enabled") : el("span", { class: "muted" }, "disabled"),
-    p.requires_payment ? "paid (optional)" : "free", p.synthetic ? "synthetic" : "real data", p.reason || ""]);
-  fill("data",
-    card("Datasets", table(["dataset", "version", "rows", "files", "integrity", "quality"], rows, [2, 3])),
-    card("Not checked (no data source for these checks yet)", unchecked.length ? table(["dataset", "check", "reason"], unchecked) : empty("–")),
-    card("Data providers", table(["provider", "status", "cost", "kind", "note"], providers)));
+    .flatMap(d => Object.entries(d.quality.unchecked).map(([k, v]) => [d.dataset, cap(k), String(v)]));
+  fill("data", kicker("Datasets · fingerprinted and verified"),
+    panel(table(["dataset", "version", "rows", "files", "integrity", "quality"], rows, [2, 3])),
+    kicker("Sources"),
+    panel(table(["provider", "status", "cost", "kind", "note"], h.providers.map(p => [p.name,
+      p.enabled ? el("span", { class: "good" }, "open") : el("span", { class: "muted" }, "closed"),
+      p.requires_payment ? "paid · optional" : "free", p.synthetic ? "synthetic" : "real data", p.reason || ""]))),
+    unchecked.length ? kicker("Blind spots · not yet checkable") : null,
+    unchecked.length ? panel(table(["dataset", "check", "why"], unchecked)) : null);
 }
-
 async function experiments() {
   const items = await api("/api/experiments");
-  const rows = items.map(e => [e.protocol_hash, e.name, (e.horizons || []).join(", "), e.n_tests, e.discovery_survivors, e.validated, short(e.dataset_version, 19)]);
-  fill("experiments", card("Pre-registered experiments (every test is counted in the ledger)", rows.length
-    ? table(["protocol", "name", "horizons", "tests", "FDR survivors", "validated", "dataset"], rows, [3, 4, 5])
-    : empty("No experiments yet.")));
+  fill("experiments", kicker("The ledger · every test is written down before it is run"),
+    items.length ? panel(table(["protocol", "name", "horizons", "tests", "FDR survivors", "validated", "dataset"],
+      items.map(e => [e.protocol_hash, e.name, (e.horizons || []).join(", "), e.n_tests, e.discovery_survivors, e.validated, short(e.dataset_version, 19)]), [3, 4, 5]))
+    : voidState("▢", "The ledger is blank", "No experiment has been registered yet."));
 }
 
+/* ---------- Starfield (decorative only; carries no data) ---------- */
+function sky() {
+  const canvas = document.getElementById("sky"), ctx = canvas.getContext("2d");
+  let stars = [], w = 0, h = 0;
+  const resize = () => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    w = canvas.width = innerWidth * dpr; h = canvas.height = innerHeight * dpr;
+    canvas.style.width = innerWidth + "px"; canvas.style.height = innerHeight + "px";
+    stars = Array.from({ length: Math.round((innerWidth * innerHeight) / 5200) }, () =>
+      ({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.1 * dpr + .2, p: Math.random() * 6.28, s: .2 + Math.random() * .8 }));
+    if (REDUCED) frame(0);
+  };
+  const frame = (t) => {
+    ctx.clearRect(0, 0, w, h);
+    for (const s of stars) {
+      const a = REDUCED ? .5 : .25 + .45 * (0.5 + 0.5 * Math.sin(s.p + t * 0.0006 * s.s));
+      ctx.fillStyle = `rgba(241,215,154,${a.toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
+    }
+    if (!REDUCED) requestAnimationFrame(frame);
+  };
+  resize(); addEventListener("resize", resize);
+  if (!REDUCED) requestAnimationFrame(frame);
+}
+
+/* ---------- Boot ---------- */
 const LOADERS = { market, discoveries, lab, strategies, portfolio, risk, data, experiments };
 function show(id) {
   for (const [v] of VIEWS) {
@@ -250,15 +468,20 @@ function show(id) {
   try { localStorage.setItem("oracle-tab", id); } catch (_) { /* storage unavailable */ }
 }
 const nav = document.getElementById("tabs");
-for (const [id, label] of VIEWS) {
-  const b = el("button", { id: "tab-" + id, role: "tab", "aria-selected": "false" }, label);
+for (const [id, label, numeral] of VIEWS) {
+  const b = el("button", { id: "tab-" + id, role: "tab", "aria-selected": "false" }, el("b", {}, numeral), label);
   b.addEventListener("click", () => show(id));
   nav.append(b);
 }
+const pill = (text, cls) => el("span", { class: "pill " + cls }, el("i"), text);
 api("/api/health").then(h => {
-  document.getElementById("meta").textContent = "v" + h.version + " · " + h.environment + " · live trading " +
-    (h.live_trading_enabled ? "ENABLED" : "disabled") + " · research software, no profitability claims";
-}).catch(() => { document.getElementById("meta").textContent = "API unavailable"; });
+  document.getElementById("status").replaceChildren(...[
+    pill("v" + h.version, ""), pill(h.environment, ""),
+    h.live_trading_enabled ? pill("live trading on", "alert") : pill("live trading sealed", "ok"),
+    h.kill_switch_engaged ? pill("kill switch", "alert") : null,
+    pill(h.providers.some(p => p.enabled && !p.synthetic) ? "real data" : "synthetic only", "")].filter(Boolean));
+}).catch(() => document.getElementById("status").replaceChildren(pill("offline", "alert")));
+sky();
 let start = "market";
 try { start = localStorage.getItem("oracle-tab") || "market"; } catch (_) { /* ignore */ }
 show(Object.prototype.hasOwnProperty.call(LOADERS, start) ? start : "market");
