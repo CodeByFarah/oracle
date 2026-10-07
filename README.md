@@ -48,6 +48,9 @@ Control may block unsigned console-script shims in `.venv\Scripts`.
 uv run oracle serve        # http://127.0.0.1:8765/ (read-only, loopback only)
 ```
 
+If Windows Application Control blocks `oracle.exe` ("os error 4551"), use
+`uv run python -m oracle …` instead: same commands, run through the allowed interpreter.
+
 The dashboard has these tabs: Market (world snapshot), Discoveries (every hypothesis, with its
 evidence, mechanisms and adversarial checks), Research lab (loop cycles and a searchable
 journal), Strategies, Portfolio (paper only), Risk, Data (versions, integrity, quality,
