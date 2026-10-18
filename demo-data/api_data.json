@@ -1,0 +1,1 @@
+[{"dataset":"bars","present":true,"version":"ds-1bac34457292899ff940c7d8ec3f964a4677121f9c8763eadce4e72153a15619","rows":190320,"partitions":24,"created_at":"2026-10-18T09:55:08.959787+00:00","integrity_problems":[]},{"dataset":"macro_observations","present":false},{"dataset":"filings","present":false}]

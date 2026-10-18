@@ -1,0 +1,1 @@
+{"limits":{"max_position_weight":0.1,"max_gross_leverage":1.0,"max_net_exposure":0.3,"max_sector_weight":0.3,"max_beta_exposure":0.3,"max_participation":0.05,"max_daily_loss":0.02,"max_drawdown":0.1,"max_stress_loss":0.05,"sector_map":{}},"kill_switch_engaged":false,"live_trading_enabled":false}
