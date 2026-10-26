@@ -1,11 +1,16 @@
-"""Read-only API and dashboard.
+"""API and dashboard.
 
-Everything here only READS the lake and research artifacts. There is no endpoint that ingests,
-runs research, changes a strategy or touches execution. There is no authentication, so the
-server must stay bound to the loopback interface (`oracle serve` enforces that).
+The research endpoints in this module only READ the lake and research artifacts. There is no
+endpoint that ingests, runs research, changes a strategy or touches execution. Every number
+shown there comes from a stored artifact: datasets and quality reports, loop reports,
+discovery results, hypotheses, adversarial reports and the journal.
 
-Every number shown in the dashboard comes from a stored artifact: datasets and quality
-reports, loop reports, discovery results, hypotheses, adversarial reports and the journal.
+The banking and AI endpoints (`fintech_routes.py`) may change sandbox ledger state. There is no
+authentication, so the server must stay bound to the loopback interface (`oracle serve`
+enforces that), and two request guards apply to every route:
+- the Host header must be a loopback name, which defeats DNS rebinding;
+- any state-changing method needs the `X-Oracle-Client` header, which cross-site pages cannot
+  send without a CORS preflight this server never grants.
 """
 
 from __future__ import annotations
@@ -16,15 +21,22 @@ from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from oracle import __version__
-from oracle.common.config import Settings
+from oracle.api.fintech_routes import Clock, fintech_routers
+from oracle.common.config import LOOPBACK, Settings
 from oracle.data.lake import Lake
 from oracle.data.providers.registry import provider_statuses
 from oracle.data.query import connect
+from oracle.fintech.ledger import LedgerError
+from oracle.fintech.money import CurrencyError
+from oracle.fintech.service import NotFoundError
 from oracle.quality.checks import run_quality
 from oracle.risk.engine import RiskConfig
 from oracle.schemas.market import DatasetKind
@@ -70,12 +82,58 @@ def _dataset_summary(lake: Lake, kind: DatasetKind, quality: bool) -> dict[str, 
     return item
 
 
-def create_app(settings: Settings, *, kill_switch_path: Path | None = None) -> FastAPI:
+CLIENT_HEADER = "x-oracle-client"
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+# "testserver" is the Host header Starlette's TestClient sends.
+ALLOWED_HOSTS = LOOPBACK | {"testserver"}
+
+
+def _host(value: str) -> str:
+    return (urlsplit(f"//{value}").hostname or "").lower()
+
+
+class RequestGuard(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        host = _host(request.headers.get("host", ""))
+        if host not in ALLOWED_HOSTS:
+            return JSONResponse({"detail": "host not allowed"}, status_code=421)
+        if request.method not in SAFE_METHODS:
+            if not request.headers.get(CLIENT_HEADER):
+                return JSONResponse({"detail": f"missing {CLIENT_HEADER} header"}, status_code=403)
+            origin = request.headers.get("origin")
+            if origin and _host(urlsplit(origin).netloc) != host:
+                return JSONResponse({"detail": "cross-origin request refused"}, status_code=403)
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        if request.url.path == "/" or request.url.path.startswith("/static/"):
+            # Revalidate (ETag) on every load so an upgraded dashboard is never served stale.
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+def create_app(
+    settings: Settings, *, kill_switch_path: Path | None = None, clock: Clock | None = None
+) -> FastAPI:
     lake = Lake(settings.data_root)
     research = lake.resolve("research")
     loops = lake.resolve("loop")
     kill_path = kill_switch_path or lake.resolve("KILL_SWITCH")
     app = FastAPI(title="ORACLE", version=__version__, docs_url=None, redoc_url=None)
+    app.add_middleware(RequestGuard)
+    for router in fintech_routers(settings, clock):
+        app.include_router(router)
+    app.mount("/static", StaticFiles(packages=[("oracle.api", "static")]), name="static")
+
+    @app.exception_handler(NotFoundError)
+    def _not_found(_request: Request, exc: NotFoundError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=404)
+
+    @app.exception_handler(LedgerError)
+    @app.exception_handler(CurrencyError)
+    def _rejected(_request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=422)
 
     def loop_files() -> list[Path]:
         return sorted(loops.glob("*.json")) if loops.exists() else []

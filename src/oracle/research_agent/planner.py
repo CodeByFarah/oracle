@@ -5,14 +5,16 @@
 - LLMPlanner (optional, disabled by default): asks a language model for a plan through an
   injected `complete(prompt) -> str` function. The planner holds no credentials and makes no
   network calls itself. Output must be strict JSON and may only use known variables and
-  allowed horizons; anything else is rejected, never repaired.
+  allowed horizons; anything else is rejected, never repaired. `oracle loop run-once
+  --planner llm` injects a local open-source model served by Ollama (`oracle.ai.ollama`).
+- FallbackPlanner: tries one planner and falls back to another when a plan is rejected.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -151,3 +153,25 @@ class LLMPlanner:
         return ResearchPlan(
             question=plan.question, protocol=protocol, rationale=plan.rationale, planner=self.name
         )
+
+
+@dataclass
+class FallbackPlanner:
+    """Try `primary` (typically an LLMPlanner); when its plan is rejected or the model is
+    unreachable, use `fallback`. The reason is kept in the plan's rationale for the journal."""
+
+    primary: Planner
+    fallback: Planner
+    name: str = "llm+deterministic"
+    failures: list[str] = field(default_factory=list)
+
+    def propose(self, context: PlanningContext) -> ResearchPlan | None:
+        try:
+            return self.primary.propose(context)
+        except (PlanRejectedError, RuntimeError) as exc:  # RuntimeError: model unavailable
+            self.failures.append(str(exc))
+            plan = self.fallback.propose(context)
+            if plan is None:
+                return None
+            note = f"{plan.rationale} (LLM plan rejected: {str(exc)[:160]})"
+            return plan.model_copy(update={"rationale": note, "planner": self.name})

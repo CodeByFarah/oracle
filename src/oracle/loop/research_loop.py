@@ -53,7 +53,7 @@ from oracle.market_state.panel import build_panel
 from oracle.market_state.state import compute_market_state, state_at
 from oracle.regime.hmm import RegimeError, fit_hmm, regime_table
 from oracle.research_agent.agent import ResearchAgent
-from oracle.research_agent.planner import DeterministicPlanner
+from oracle.research_agent.planner import DeterministicPlanner, Planner
 from oracle.risk.engine import RiskConfig, RiskEngine
 from oracle.schemas.core import ActivationStage
 from oracle.strategy.conditional import target_weights
@@ -285,7 +285,10 @@ def run_once(
     now: datetime,
     config: LoopConfig | None = None,
     engine: Engine | None = None,
+    planner: Planner | None = None,
 ) -> LoopReport:
+    """`planner` defaults to the free DeterministicPlanner; pass an LLMPlanner (wrapped in a
+    FallbackPlanner) to let a local model choose experiments."""
     cfg = config or LoopConfig()
     fs_id, features = FeatureStore(lake).get_or_compute(manifest, now=now)  # quality gate inside
     state = compute_market_state(features)
@@ -293,7 +296,7 @@ def run_once(
     world = _world(state, features, now, provenance, cfg.graph_window)
     ctx = LakeResearchContext(lake, features, state, manifest.version, fs_id, engine=engine)
     run = ResearchAgent(
-        DeterministicPlanner(cfg.base_protocol), ctx, budget=cfg.research_budget
+        planner or DeterministicPlanner(cfg.base_protocol), ctx, budget=cfg.research_budget
     ).run(now)
     validated = [h for h in ctx.hypotheses if h.status is HypothesisStatus.VALIDATED_OOS]
     rejections: dict[str, tuple[str, ...]] = {}

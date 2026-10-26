@@ -9,6 +9,7 @@ import typer
 from sqlalchemy import text
 
 from oracle import __version__
+from oracle.cli.bank_commands import ai_app, bank_app
 from oracle.cli.data_commands import dataset_app, ingest_app, providers
 from oracle.cli.loop_commands import loop_app
 from oracle.common.config import ConfigurationError, get_settings
@@ -20,6 +21,8 @@ app.command()(providers)
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(loop_app, name="loop")
+app.add_typer(bank_app, name="bank")
+app.add_typer(ai_app, name="ai")
 
 
 @app.command()
@@ -39,6 +42,12 @@ def info() -> None:
     typer.echo(f"database_url      {'configured' if settings.database_url else 'NOT SET'}")
     typer.echo(f"databento_api_key {'configured' if settings.databento_api_key else 'NOT SET'}")
     typer.echo(f"live_trading      {'ENABLED' if settings.live_trading_enabled else 'disabled'}")
+    typer.echo(
+        f"fintech_ledger    {settings.fintech_url().split('://')[0]} ({settings.fintech_provider})"
+    )
+    typer.echo(
+        f"ai                {settings.ai_provider} {settings.ollama_url} model={settings.ai_model}"
+    )
 
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -49,7 +58,7 @@ def serve(
     host: str = typer.Option("127.0.0.1", help="Loopback only: the API has no authentication."),
     port: int = typer.Option(8765, min=1024, max=65535),
 ) -> None:
-    """Serve the read-only dashboard and API on this machine."""
+    """Serve the dashboard and API on this machine (research read-only; banking is sandbox)."""
     if host not in LOOPBACK_HOSTS:
         typer.echo(
             f"error: refusing to bind {host!r}; the API is unauthenticated and loopback-only",
@@ -60,7 +69,7 @@ def serve(
 
     from oracle.api.app import create_app
 
-    typer.echo(f"ORACLE dashboard: http://{host}:{port}/  (read-only; Ctrl+C to stop)")
+    typer.echo(f"ORACLE: http://{host}:{port}/  (sandbox banking + research; Ctrl+C to stop)")
     uvicorn.run(create_app(get_settings()), host=host, port=port, log_level="warning")
 
 

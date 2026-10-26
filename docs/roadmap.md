@@ -24,6 +24,9 @@ Constraint: **$0 out-of-pocket spending** ([ADR 0002](adr/0002-free-data-first.m
 | 14 | Portfolio construction and risk engine | Done |
 | 15 | Execution gateway, order validation, kill switch, simulated/paper brokers | Done |
 | 16 | Live execution behind gates | Done as gates only; **no real broker adapter exists** |
+| 17 | Banking domain: ledger, wallets with FX, cards and controls, authorization with fraud screening, payments, analytics, insights, budgets, goals (ADR 0003) | Done on **sandbox providers only**; no production issuer or rail, no authentication |
+| 18 | Local AI: Ollama client, tool-using financial assistant with offline fallback, AI briefing, transaction explanations, categorisation, LLM research planner | Done |
+| 19 | Dashboard redesign: Money, Intelligence and Research workspaces | Done |
 | 17 | Continuous research loop (`oracle loop run-once`) | Done |
 | 18 | Free real-data price providers: Alpaca (minute/daily bars, older than 15 min) and Tiingo (daily) | Done. Fixture-tested only; never called live |
 | 19 | Read-only API and dashboard (`oracle serve`, loopback only) | Done |

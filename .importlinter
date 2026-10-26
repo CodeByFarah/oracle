@@ -8,13 +8,14 @@ name = ORACLE layer model (docs/architecture.md)
 type = layers
 layers =
     oracle.cli : oracle.loop : oracle.api
+    oracle.fintech
     oracle.execution
     oracle.strategy : oracle.portfolio : oracle.risk
     oracle.research_agent
     oracle.discovery : oracle.hypothesis : oracle.validation : oracle.adversarial : oracle.backtest
     oracle.features : oracle.market_state : oracle.regime : oracle.flow : oracle.anomaly : oracle.graph : oracle.world_model
     oracle.ingestion : oracle.normalization : oracle.quality
-    oracle.data : oracle.registry
+    oracle.data : oracle.registry : oracle.ai
     oracle.schemas
     oracle.common
 
@@ -29,6 +30,23 @@ source_modules =
     oracle.execution
 forbidden_modules =
     oracle.research_agent
+
+# Money movement and fraud decisions are deterministic code. The AI assistant may read through
+# the service and propose actions, but the money path must never depend on it or on a model.
+[importlinter:contract:no-ai-in-money-path]
+name = Ledger, authorization and fraud do not import the AI
+type = forbidden
+source_modules =
+    oracle.fintech.ledger
+    oracle.fintech.authorization
+    oracle.fintech.fraud
+    oracle.fintech.providers
+    oracle.fintech.events
+    oracle.fintech.models
+forbidden_modules =
+    oracle.ai
+    oracle.fintech.assistant
+    oracle.fintech.tools
 
 # Agent code may not reach credentials-bearing config or the metadata DB directly; it uses the
 # typed research tool API (Phase 10). Indirect use through L3 is allowed; runtime isolation is

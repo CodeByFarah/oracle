@@ -11,6 +11,8 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,6 +23,9 @@ class Environment(StrEnum):
     RESEARCH = "research"
     PAPER = "paper"
     LIVE = "live"
+
+
+LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 class ConfigurationError(RuntimeError):
@@ -72,6 +77,36 @@ class Settings(BaseSettings):
     # HMAC key used to sign human live-trading authorizations (Phase 16). Never committed.
     live_authorization_secret: SecretStr | None = None
 
+    # ---- Fintech (banking) domain ----
+    # Ledger database. Unset: a local SQLite file under data_root. PostgreSQL URLs need
+    # `alembic upgrade head` (migration 0004) before first use.
+    fintech_database_url: SecretStr | None = None
+    # Seed a synthetic demo customer (tagged synthetic) when the ledger is empty.
+    fintech_autoseed: bool = True
+    # Card issuing and payment rails. Only the sandbox exists; there is no production adapter,
+    # so no real card is issued and no real money moves.
+    fintech_provider: Literal["sandbox"] = "sandbox"
+
+    # ---- Local AI ----
+    # "ollama": an open-source model served locally by Ollama. "none": offline engine only.
+    ai_provider: Literal["ollama", "none"] = "ollama"
+    ollama_url: str = "http://127.0.0.1:11434"
+    # "auto" picks the first installed model from a preference list.
+    ai_model: str = "auto"
+    ai_timeout_s: float = Field(default=120.0, gt=0)
+    # Financial data is sent to the model; by default only a model on this machine is allowed.
+    ai_allow_remote: bool = False
+
+    @model_validator(mode="after")
+    def _ai_stays_local(self) -> Settings:
+        host = urlsplit(self.ollama_url).hostname or ""
+        if self.ai_provider == "ollama" and not self.ai_allow_remote and host not in LOOPBACK:
+            raise ValueError(
+                f"ollama_url host {host!r} is not loopback; financial data would leave this "
+                "machine. Set ORACLE_AI_ALLOW_REMOTE=true to permit it."
+            )
+        return self
+
     @model_validator(mode="after")
     def _live_trading_only_in_live_environment(self) -> Settings:
         if self.live_trading_enabled and self.environment is not Environment.LIVE:
@@ -85,6 +120,11 @@ class Settings(BaseSettings):
         if self.database_url is None or not self.database_url.get_secret_value():
             raise ConfigurationError("ORACLE_DATABASE_URL is not set (see .env.example)")
         return self.database_url.get_secret_value()
+
+    def fintech_url(self) -> str:
+        if self.fintech_database_url is not None and self.fintech_database_url.get_secret_value():
+            return self.fintech_database_url.get_secret_value()
+        return f"sqlite:///{(self.data_root / 'fintech' / 'ledger.db').as_posix()}"
 
     def require_databento_api_key(self) -> str:
         if self.databento_api_key is None or not self.databento_api_key.get_secret_value():

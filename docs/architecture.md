@@ -13,20 +13,23 @@ A module may import only from its own layer or from layers below it.
 
 | Layer | Packages | Responsibility |
 |---|---|---|
-| top | `cli`, `loop`, `api` | Entry points; the continuous research loop; read-only API and dashboard |
+| top | `cli`, `loop`, `api` | Entry points; the continuous research loop; API and dashboard |
+| L7 | `fintech` | Banking: ledger, cards, card authorization, fraud screening, payments, analytics, insights, AI assistant and its tools (ADR 0003) |
 | L6 | `execution` | Paper/Simulation/Live brokers. Live is disabled by default |
 | L5 | `strategy`, `portfolio`, `risk` | Strategy lifecycle, portfolio construction, deterministic risk veto |
 | L4 | `research_agent` | Sandboxed AI researcher; uses only the typed research tool API |
 | L3 | `discovery`, `hypothesis`, `validation`, `adversarial`, `backtest` | Search, formal hypotheses, statistics, falsification, simulation |
 | L2 | `features`, `market_state`, `regime`, `flow`, `anomaly`, `graph`, `world_model` | Representations of market conditions |
 | L1 | `ingestion`, `normalization`, `quality` | Raw vendor data → canonical, quality-checked data |
-| L0 | `data`, `registry` | Provider interfaces and lake I/O; PostgreSQL metadata |
+| L0 | `data`, `registry`, `ai` | Provider interfaces and lake I/O; PostgreSQL metadata; local LLM client (Ollama) |
 | L0 | `schemas` | Shared typed contracts and enums |
 | L0 | `common` | Config, ids, hashing, provenance, logging |
 
 Extra contracts:
 - `strategy`, `portfolio`, `risk` and `execution` may never import `research_agent`, directly or
   indirectly.
+- `fintech.ledger`, `authorization`, `fraud`, `providers`, `events` and `models` (the money
+  path) may never import `ai`, `fintech.assistant` or `fintech.tools`.
 - `research_agent` may not *directly* import `common.config` (credentials) or `registry`.
   Runtime isolation (no network, no secrets mounted, resource limits) is provided by the sandbox
   in Phase 10.
@@ -53,7 +56,8 @@ evidence will refuse a dirty working tree.
 
 | Store | Contents | Status |
 |---|---|---|
-| PostgreSQL 17 | `audit_log` (append-only, trigger-enforced), `experiments`, `dataset_versions`, `hypothesis_tests` (full ledger), `hypotheses` (H-nnnnnnn), `journal_entries` (full-text search) | Live (migrations `0001`-`0003`) |
+| PostgreSQL 17 | `audit_log` (append-only, trigger-enforced), `experiments`, `dataset_versions`, `hypothesis_tests` (full ledger), `hypotheses` (H-nnnnnnn), `journal_entries` (full-text search); optionally the `fin_*` banking ledger | Live (migrations `0001`-`0004`) |
+| SQLite (`data/fintech/ledger.db`) | Banking ledger `fin_*` (default when `ORACLE_FINTECH_DATABASE_URL` is unset) | Live |
 | Lake under `ORACLE_DATA_ROOT` (`oracle.data.lake`) | `raw/`, `normalized/`, `manifests/`, `features/` (cached, hash-verified), `research/` (results, journal, hypotheses, adversarial reports), `loop/` (cycle reports) | Live |
 | DuckDB | SQL over exactly the files of one dataset version | Live |
 | Redis, streaming broker | Realtime state | Deferred until realtime work needs them |
@@ -74,4 +78,12 @@ Timestamps are UTC. Normalized rows carry both `event_ts` (when it happened) and
 - AI-written code runs only in the Docker sandbox: no network, read-only root, cap-drop ALL,
   non-root user, resource limits and a timeout.
 - Secrets are `SecretStr` and never rendered. Logs redact keys that look sensitive.
+- Banking runs on sandbox providers only (`fintech_provider` accepts only `sandbox`). Cards keep
+  a last-four and a token, never a card number. Every card purchase passes the authorization
+  checks (status, expiry, channel and country controls, blocked categories, limits, fraud score,
+  funds); declines are recorded with reasons. `fin_security_events` is append-only.
+- The AI assistant reads through the service and can only propose actions; the customer
+  confirms each one. The model URL must be loopback unless `ai_allow_remote` is set.
+- State-changing banking requests need the `X-Oracle-Client` header; all requests need a
+  loopback `Host` header.
 - `.env`, vendor data and research artifacts are git-ignored.
